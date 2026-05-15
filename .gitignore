@@ -1,0 +1,59 @@
+# Rust
+/target
+**/target
+**/*.rs.bk
+Cargo.lock.bak
+
+# Engine (Godot)
+.godot/
+.import/
+*.import
+export.cfg
+export_presets.cfg
+
+# Engine (Unity)
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Mm]emoryCaptures/
+*.csproj
+*.sln
+*.suo
+*.user
+*.tmp
+.vs/
+
+# Generated data / artifacts
+*.parquet
+*.sqlite
+*.sqlite-journal
+/run-logs/
+/replays/
+
+# Profiling
+*.profraw
+flamegraph.svg
+perf.data*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Python (no longer used, kept to avoid accidental re-introduction)
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets
+.env
+.env.*
+!.env.example

@@ -1,0 +1,11 @@
+[package]
+name = "scenario-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Scenario script interpreter, triggers, and branching."
+
+[lints]
+workspace = true

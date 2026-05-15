@@ -1,0 +1,11 @@
+[package]
+name = "core-ecs"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Entity-Component-System primitives for the EMS sim core."
+
+[lints]
+workspace = true

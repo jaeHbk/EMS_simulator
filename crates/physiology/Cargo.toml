@@ -1,0 +1,14 @@
+[package]
+name = "physiology"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Patient physiology engine trait and stub implementation. Pulse FFI integration is gated behind ADR-0001."
+
+[dependencies]
+core-time = { workspace = true }
+
+[lints]
+workspace = true

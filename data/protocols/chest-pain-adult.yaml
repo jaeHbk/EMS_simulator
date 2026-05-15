@@ -1,0 +1,156 @@
+# Chest pain — adult, non-traumatic
+#
+# Phase 1 vertical-slice protocol. Conforms to the protocol DSL sketch in
+# steering doc §3.3. Every clinical step carries a `source` field; no entry
+# may exist without one (steering doc §11.3).
+#
+# This file is provider-and-jurisdiction-neutral. Regional medical-director
+# packs override individual steps via the protocol-pack composition layer
+# (lands in Phase 2).
+#
+# WARNING: This document is a SIMULATOR DATA FILE. It is for training and
+# scenario use only and is NOT a clinical protocol for use on real patients.
+
+schema_version: "0.1.0"
+id: chest-pain-adult
+title: "Chest pain — adult, non-traumatic"
+applies_when:
+  age_years: ">= 18"
+  chief_complaint:
+    - "chest pain"
+    - "chest pressure"
+    - "chest tightness"
+    - "chest discomfort"
+  exclude_if:
+    - mechanism_of_injury: "trauma"
+
+# Ordered list of steps. The runtime evaluates `if` predicates against live
+# patient state and surfaces the matching step as guidance, while still
+# allowing the trainee to deviate.
+steps:
+
+  - id: scene-bsi
+    action: scene_safety_and_bsi
+    sources:
+      - "NREMT Psychomotor Skill Sheet — Patient Assessment / Trauma & Medical (current)"
+
+  - id: primary-survey
+    action: primary_survey
+    components: [airway, breathing, circulation, disability, exposure]
+    sources:
+      - "AHA 2020 ACLS Provider Manual, Ch. 3 (Systematic Approach)"
+
+  - id: vitals-initial
+    action: assess
+    measure: [hr, bp, rr, spo2, temperature, pain_score_0_10, skin_signs]
+    sources:
+      - "Mistovich JJ, Karren KJ. Prehospital Emergency Care, 11e, Ch. 13"
+
+  - id: history
+    action: assess
+    measure: [sample_history, opqrst]
+    sources:
+      - "AHA 2020 ACLS Provider Manual, Ch. 3"
+
+  - id: ecg-12-lead
+    action: assess
+    measure: [ecg_12_lead]
+    timing:
+      target_seconds_from_patient_contact: 600   # 10 minutes
+    sources:
+      - "AHA/ACC 2013 STEMI Guideline, recommendation that 12-lead ECG be performed within 10 min of first medical contact (FMC). doi:10.1161/CIR.0b013e3182742cf6"
+
+  - id: aspirin
+    if:
+      patient_can_take_aspirin: true   # not allergic, no active GI bleed, conscious, can chew
+    action: administer_drug
+    drug: aspirin
+    dose_mg: 324                       # 4 × 81 mg chewable
+    route: po_chew
+    sources:
+      - "AHA 2020 ACLS Provider Manual, ACS Algorithm — Aspirin 160–325 mg PO (chewed) in suspected ACS"
+      - "AHA/ACC 2014 NSTE-ACS Guideline, Class I recommendation. doi:10.1161/CIR.0000000000000134"
+
+  - id: oxygen-titration
+    if:
+      spo2_fraction: "< 0.94"
+    action: administer_oxygen
+    target:
+      spo2_fraction_min: 0.94
+      spo2_fraction_max: 0.98
+    sources:
+      - "AHA 2020 ACLS Provider Manual — titrate oxygen to SpO2 ≥ 94% in suspected ACS; routine high-flow oxygen no longer recommended for normoxic patients"
+
+  - id: nitroglycerin
+    if:
+      systolic_bp_mmhg: ">= 100"
+      pain_score_0_10: ">= 4"
+      no_recent_pde5_inhibitor: true   # no sildenafil/tadalafil/vardenafil within recent window per regional protocol
+      no_inferior_stemi_with_rv_involvement: true
+    action: administer_drug
+    drug: nitroglycerin
+    dose_mg: 0.4
+    route: sl
+    repeat:
+      every_minutes: 5
+      max_doses: 3
+      stop_if:
+        systolic_bp_mmhg: "< 100"
+        pain_resolved: true
+    sources:
+      - "AHA 2020 ACLS Provider Manual — NTG 0.4 mg SL q5 min × 3 if SBP ≥ 90–100 mmHg and no contraindications"
+
+  - id: stemi-decision
+    branch_on:
+      ecg.stemi: true
+    then:
+      - id: activate-cath-lab
+        action: notify
+        target: receiving_facility
+        message: "STEMI alert — ETA, lead with maximum ST elevation, vitals, allergies, last meds"
+        sources:
+          - "AHA/ACC 2013 STEMI Guideline — pre-hospital STEMI activation reduces FMC-to-device time. doi:10.1161/CIR.0b013e3182742cf6"
+      - id: transport-priority-1
+        action: transport
+        priority: 1
+        destination_class: pci_capable_center
+        sources:
+          - "AHA/ACC 2013 STEMI Guideline — preferred transport directly to PCI-capable center when total FMC-to-device time ≤ 120 min."
+
+  - id: reassess
+    action: reassess
+    every_minutes: 5
+    measure: [hr, bp, rr, spo2, pain_score_0_10, ecg_rhythm]
+    sources:
+      - "Mistovich JJ, Karren KJ. Prehospital Emergency Care, 11e — reassess every 5 min for unstable patients"
+
+# Grading rubric — used by the debrief and metrics modules. Weights are
+# placeholders; the SME panel locks final weights before Phase 1 release.
+grading:
+  weights:
+    ecg_12_lead_within_10_min: 25
+    aspirin_administered_when_indicated: 20
+    spo2_titrated_correctly: 10
+    nitroglycerin_with_correct_contraindication_check: 15
+    stemi_recognized_and_activated: 20
+    transport_destination_correct: 10
+  notes:
+    - "Deductions only; missing a step is logged but does not preempt the trainee."
+
+# Provenance — every clinical entry must trace to a citation.
+sources:
+  - id: aha-2020-acls
+    citation: "American Heart Association. 2020 ACLS Provider Manual. Dallas: AHA, 2020."
+  - id: aha-acc-2013-stemi
+    citation: "O'Gara PT, et al. 2013 ACCF/AHA Guideline for the Management of ST-Elevation Myocardial Infarction. Circulation. 2013;127(4):e362–e425."
+    doi: "10.1161/CIR.0b013e3182742cf6"
+  - id: aha-acc-2014-nste-acs
+    citation: "Amsterdam EA, et al. 2014 AHA/ACC Guideline for the Management of Patients With Non–ST-Elevation Acute Coronary Syndromes. Circulation. 2014;130(25):e344–e426."
+    doi: "10.1161/CIR.0000000000000134"
+  - id: nremt-skill-sheets
+    citation: "National Registry of EMTs, Psychomotor Examination Skill Sheets (current edition)."
+  - id: mistovich-prehospital-care
+    citation: "Mistovich JJ, Karren KJ. Prehospital Emergency Care. 11th ed. Pearson, 2018."
+
+# Review trail — populate on each SME review per steering doc §12.
+reviews: []

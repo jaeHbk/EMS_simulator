@@ -1,0 +1,11 @@
+[package]
+name = "core-time"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Deterministic clock, scheduler, and seeded PRNG for the EMS sim core."
+
+[lints]
+workspace = true

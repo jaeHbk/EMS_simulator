@@ -1,0 +1,19 @@
+[package]
+name = "sim-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Headless simulation server entry point. gRPC surface lands in Phase 0 once stack is locked."
+
+[[bin]]
+name = "sim-server"
+path = "src/main.rs"
+
+[dependencies]
+core-time = { workspace = true }
+physiology = { workspace = true }
+
+[lints]
+workspace = true

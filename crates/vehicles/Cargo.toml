@@ -1,0 +1,11 @@
+[package]
+name = "vehicles"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Emergency vehicle dynamics, lights/siren, comms hooks, and equipment loadouts."
+
+[lints]
+workspace = true
