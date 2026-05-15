@@ -1,0 +1,41 @@
+{
+  "Name": "ApneaNRB",
+  "Description": "ADR-0001 Phase 0 spike: 30 s baseline, induce apnea (Dyspnea TV severity 1.0), wait 60 s for desaturation, apply NonRebreatherMask at 15 L/min, observe SpO2 and ETCO2 recovery for 5 min.",
+  "PatientConfiguration": { "PatientFile": "StandardMale.json" },
+  "DataRequestManager": {
+    "DataRequest": [
+      { "DecimalFormat": { "Precision": 4 }, "Category": "Physiology", "PropertyName": "OxygenSaturation" },
+      { "DecimalFormat": { "Precision": 2 }, "Category": "Physiology", "PropertyName": "EndTidalCarbonDioxidePressure", "Unit": "mmHg" },
+      { "DecimalFormat": { "Precision": 2 }, "Category": "Physiology", "PropertyName": "ArterialOxygenPartialPressure", "Unit": "mmHg" },
+      { "DecimalFormat": { "Precision": 2 }, "Category": "Physiology", "PropertyName": "ArterialCarbonDioxidePartialPressure", "Unit": "mmHg" },
+      { "DecimalFormat": { "Precision": 2 }, "Category": "Physiology", "PropertyName": "RespirationRate", "Unit": "1/min" },
+      { "DecimalFormat": { "Precision": 2 }, "Category": "Physiology", "PropertyName": "HeartRate", "Unit": "1/min" },
+      { "DecimalFormat": { "Precision": 4 }, "Category": "Physiology", "PropertyName": "TotalLungVolume", "Unit": "L" },
+      { "DecimalFormat": { "Precision": 4 }, "Category": "GasCompartment", "CompartmentName": "Carina", "SubstanceName": "Oxygen", "PropertyName": "VolumeFraction" },
+      { "DecimalFormat": { "Precision": 4 }, "Category": "GasCompartment", "CompartmentName": "Carina", "SubstanceName": "CarbonDioxide", "PropertyName": "VolumeFraction" },
+      { "DecimalFormat": { "Precision": 4 }, "Category": "GasCompartment", "CompartmentName": "NonRebreatherMaskOxygenSource", "PropertyName": "OutFlow", "Unit": "L/min" }
+    ]
+  },
+  "AnyAction": [
+    { "AdvanceTime": { "Time": { "ScalarTime": { "Value": 30.0, "Unit": "s" } } } },
+    {
+      "PatientAction": {
+        "Dyspnea": {
+          "PatientAction": { "Action": { "Comment": "Induce apnea via maximal tidal-volume severity." } },
+          "TidalVolumeSeverity": { "Scalar0To1": { "Value": 1.0 } }
+        }
+      }
+    },
+    { "AdvanceTime": { "Time": { "ScalarTime": { "Value": 60.0, "Unit": "s" } } } },
+    {
+      "PatientAction": {
+        "SupplementalOxygen": {
+          "PatientAction": { "Action": { "Comment": "Apply NonRebreatherMask at 15 L/min." } },
+          "Device": "NonRebreatherMask",
+          "Flow": { "ScalarVolumePerTime": { "Value": 15.0, "Unit": "L/min" } }
+        }
+      }
+    },
+    { "AdvanceTime": { "Time": { "ScalarTime": { "Value": 5.0, "Unit": "min" } } } }
+  ]
+}
