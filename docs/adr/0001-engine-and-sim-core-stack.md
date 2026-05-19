@@ -1,9 +1,19 @@
 # ADR-0001: Engine and simulation-core stack
 
-- **Status:** Proposed (criteria captured; decision deferred to Phase 0 close)
-- **Date:** 2026-05-15
+- **Status:** Accepted with Phase-0 deviations — see ADR-0002
+- **Date:** 2026-05-15 (proposed); 2026-05-19 (accepted)
 - **Deciders:** Project leads + clinical advisor + tech lead
 - **Template:** Michael Nygard, "Documenting Architecture Decisions" (2011)
+
+> **Acceptance note (2026-05-19):** The Rust + Pulse + gRPC/WebSocket
+> direction holds. The web client (replacing Godot 4 for Phase 0) and
+> trace-replay physiology (replacing live Pulse FFI for Phase 0) are
+> documented in [ADR-0002](0002-phase0-trace-replay-and-web-client.md)
+> with explicit, reversible swap-back criteria. The Phase 0 spike
+> deliverables in this ADR remain the gating criteria for swapping in
+> live Pulse FFI; the apnea/NRB clinical curve is met today via the
+> committed trace, replayed deterministically through the same
+> `PhysiologyEngine` trait Pulse will plug into.
 
 ## Context
 
