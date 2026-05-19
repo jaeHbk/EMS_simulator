@@ -4,6 +4,13 @@
 **/*.rs.bk
 Cargo.lock.bak
 
+# Web client (Vite + React)
+node_modules/
+**/node_modules/
+**/dist/
+**/.vite/
+*.tsbuildinfo
+
 # Engine (Godot)
 .godot/
 .import/

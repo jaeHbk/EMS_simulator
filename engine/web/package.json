@@ -1,0 +1,31 @@
+{
+  "name": "ems-simulator-web",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "Web client for the EMS Simulator: 3D scene + live vitals overlay over a WebSocket vitals stream from sim-server.",
+  "scripts": {
+    "dev": "vite --port 5173 --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --port 5174",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@react-three/drei": "9.121.4",
+    "@react-three/fiber": "8.17.10",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "three": "0.171.0"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.18",
+    "@types/react-dom": "18.3.5",
+    "@types/three": "0.171.0",
+    "@vitejs/plugin-react": "4.3.4",
+    "typescript": "5.7.2",
+    "vite": "6.0.7"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
