@@ -10,5 +10,8 @@ description = "Patient physiology engine trait and stub implementation. Pulse FF
 [dependencies]
 core-time = { workspace = true }
 
+[dev-dependencies]
+core-time = { workspace = true }
+
 [lints]
 workspace = true

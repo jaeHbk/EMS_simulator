@@ -25,6 +25,9 @@
 
 use core_time::Tick;
 
+pub mod trace_replay;
+pub use trace_replay::{TraceReplayEngine, TraceReplayError};
+
 /// Snapshot of a patient's monitorable vital signs.
 ///
 /// This is intentionally minimal in Phase 0. Subsequent phases will replace
@@ -42,6 +45,8 @@ pub struct Vitals {
     pub respiratory_rate_bpm: f64,
     /// Peripheral oxygen saturation (fraction in `[0.0, 1.0]`).
     pub spo2_fraction: f64,
+    /// End-tidal CO2 partial pressure in mmHg.
+    pub etco2_mmhg: f64,
     /// Core body temperature in degrees Celsius.
     pub temperature_c: f64,
 }
@@ -57,6 +62,7 @@ impl Vitals {
         diastolic_bp_mmhg: 80.0,
         respiratory_rate_bpm: 14.0,
         spo2_fraction: 0.98,
+        etco2_mmhg: 36.0,
         temperature_c: 37.0,
     };
 }
