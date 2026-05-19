@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Headless simulation server entry point. gRPC surface lands in Phase 0 once stack is locked."
+description = "Headless simulation server: tick driver, TUI demo, WebSocket vitals stream."
 
 [[bin]]
 name = "sim-server"
@@ -14,6 +14,25 @@ path = "src/main.rs"
 [dependencies]
 core-time = { workspace = true }
 physiology = { workspace = true }
+
+tokio = { workspace = true }
+axum = { workspace = true }
+tower-http = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { workspace = true }
+ratatui = { workspace = true }
+crossterm = { workspace = true }
+futures-util = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+reqwest = { version = "0.13", default-features = false }
+tokio-tungstenite = "0.29"
+futures-util = { workspace = true }
+tokio = { workspace = true, features = ["process"] }
 
 [lints]
 workspace = true

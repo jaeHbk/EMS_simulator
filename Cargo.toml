@@ -60,8 +60,20 @@ vehicles = { path = "crates/vehicles", version = "0.0.1" }
 traffic-ai = { path = "crates/traffic-ai", version = "0.0.1" }
 metrics = { path = "crates/metrics", version = "0.0.1" }
 
-# External (intentionally none yet — Phase 0 keeps the scaffold
-# dependency-free until ADR-0001 locks the stack)
+# External — added in Phase 0 demo per ADR-0002 (web client + WebSocket
+# vitals stream). Kept minimal; no transitive dependency soup.
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "signal", "net", "io-util"] }
+axum = { version = "0.8", features = ["ws"] }
+tower-http = { version = "0.6", features = ["cors", "fs", "trace"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+ratatui = "0.30"
+crossterm = "0.29"
+futures-util = "0.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+thiserror = "2"
 
 [profile.release]
 lto = "thin"
