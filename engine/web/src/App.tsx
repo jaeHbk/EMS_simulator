@@ -1,50 +1,25 @@
-import { Suspense, lazy } from 'react';
 import { useVitalsStream } from './lib/stream';
-import { ConnectionStatus } from './ui/ConnectionStatus';
-import { ScenarioBadge } from './ui/ScenarioBadge';
-import { VitalsPanel } from './ui/VitalsPanel';
-
-// 3D scene is lazy-loaded so the first paint isn't blocked on Three.js.
-const Scene = lazy(() =>
-  import('./three/Scene').then((mod) => ({ default: mod.Scene })),
-);
+import { useInterventionsWatcher } from './lib/useInterventions';
+import { AlarmSlot } from './ui/shell/AlarmSlot';
+import { AppShell } from './ui/shell/AppShell';
+import { LeftRail } from './ui/shell/LeftRail';
+import { MonitorSlot } from './ui/shell/MonitorSlot';
+import { SceneSlot } from './ui/shell/SceneSlot';
+import { TopBar } from './ui/shell/TopBar';
 
 export function App() {
-  const { frame, status } = useVitalsStream();
+  // Frames are pushed straight into the monitor store; only `status`
+  // (low-frequency) flows through React state.
+  const { status } = useVitalsStream();
+  useInterventionsWatcher();
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <h1>EMS Simulator</h1>
-        <ScenarioBadge status={status} />
-      </header>
-      <main className="scene-pane">
-        <Suspense fallback={<SceneLoading />}>
-          <Scene frame={frame} />
-        </Suspense>
-        <div className="banner">
-          <ConnectionStatus status={status} />
-          <span>drag to orbit · scroll to zoom</span>
-        </div>
-      </main>
-      <VitalsPanel frame={frame} />
-    </div>
-  );
-}
-
-function SceneLoading() {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        display: 'grid',
-        placeItems: 'center',
-        color: 'var(--fg-dim)',
-      }}
-      aria-label="Loading 3D scene"
-    >
-      loading 3D scene…
-    </div>
+    <AppShell
+      top={<TopBar status={status} />}
+      left={<LeftRail />}
+      center={<SceneSlot />}
+      right={<MonitorSlot status={status} />}
+      bottom={<AlarmSlot />}
+    />
   );
 }

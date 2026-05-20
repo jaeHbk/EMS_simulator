@@ -1,5 +1,7 @@
-// Stylized ambulance stretcher built from primitives. Three legs + a wheel
-// per corner and a dark mattress with a thin blanket.
+// Stylized ambulance stretcher built from primitives. Four legs + a wheel
+// per corner and a dark mattress with a thin blanket. The compartment
+// floor is owned by AmbulanceInterior; this component only contributes
+// the cot itself.
 
 import { memo } from 'react';
 
@@ -10,12 +12,6 @@ const Stretcher = memo(function Stretcher() {
 
   return (
     <group>
-      {/* Floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[30, 30]} />
-        <meshStandardMaterial color="#0e131c" roughness={0.95} metalness={0.05} />
-      </mesh>
-
       {/* Frame rails */}
       <mesh position={[0, frameY, 0]} castShadow receiveShadow>
         <boxGeometry args={[2.2, 0.06, 0.9]} />

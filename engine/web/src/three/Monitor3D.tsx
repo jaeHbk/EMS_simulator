@@ -1,25 +1,29 @@
 // Bedside vitals monitor: a dark slab with a CanvasTexture screen.
-// The canvas is repainted each frame with HR/SpO2/ETCO2 readouts and a
-// rolling SpO2 trace, mirroring the clinical look of a real EMS monitor.
+//
+// Reads the latest frame imperatively from the monitor store inside
+// useFrame so the React tree stays quiet while the WS feed updates at
+// 50 Hz. Throttles canvas repaint to 10 Hz — texture upload is the
+// expensive part, not the JS draw.
 
 import { useFrame } from '@react-three/fiber';
 import { memo, useMemo, useRef } from 'react';
 import { CanvasTexture, type Mesh } from 'three';
+import { useMonitorStore } from '../ui/monitor/store/monitorStore';
 import type { VitalsFrame } from '../lib/stream';
 
 interface Props {
-  frame: VitalsFrame | null;
   position: [number, number, number];
 }
 
 const CANVAS_W = 512;
 const CANVAS_H = 320;
 const HISTORY = 240;
+const REPAINT_INTERVAL_S = 1 / 10; // 10 Hz texture upload
 
-const Monitor3D = memo(function Monitor3D({ frame, position }: Props) {
+const Monitor3D = memo(function Monitor3D({ position }: Props) {
   const screenRef = useRef<Mesh>(null);
 
-  // Off-screen canvas + texture, allocated once.
+  // Off-screen canvas + texture + ring buffer, allocated once.
   const { ctx, texture, history } = useMemo(() => {
     const c = document.createElement('canvas');
     c.width = CANVAS_W;
@@ -31,24 +35,34 @@ const Monitor3D = memo(function Monitor3D({ frame, position }: Props) {
     return {
       ctx: x,
       texture: t,
-      history: new Array<number>(HISTORY).fill(0.97),
+      history: new Float32Array(HISTORY).fill(0.97),
     };
   }, []);
 
-  useFrame(() => {
+  // Float32Array ring head — write-in-place, no Array.shift() churn.
+  const headRef = useRef(0);
+  // Last paint time (rAF clock seconds).
+  const lastPaintRef = useRef(0);
+
+  useFrame((state) => {
+    const now = state.clock.elapsedTime;
+    if (now - lastPaintRef.current < REPAINT_INTERVAL_S) return;
+    lastPaintRef.current = now;
+
+    const frame = useMonitorStore.getState().latest;
     if (!frame) {
       paintNoSignal(ctx);
       texture.needsUpdate = true;
       return;
     }
-    history.shift();
-    history.push(frame.spo2_fraction);
-    paint(ctx, frame, history);
+    history[headRef.current] = frame.spo2_fraction;
+    headRef.current = (headRef.current + 1) % HISTORY;
+    paint(ctx, frame, history, headRef.current);
     texture.needsUpdate = true;
   });
 
   return (
-    <group position={position} rotation={[0, -Math.PI / 6, 0]}>
+    <group position={position} rotation={[0, Math.PI / 3, 0]}>
       {/* Stand */}
       <mesh position={[0, -0.55, 0]} castShadow>
         <cylinderGeometry args={[0.04, 0.04, 1.1, 12]} />
@@ -91,7 +105,8 @@ function paintNoSignal(ctx: CanvasRenderingContext2D) {
 function paint(
   ctx: CanvasRenderingContext2D,
   frame: VitalsFrame,
-  history: number[],
+  history: Float32Array,
+  head: number,
 ) {
   // Background.
   ctx.fillStyle = '#0a0e14';
@@ -109,7 +124,7 @@ function paint(
   }
 
   // Top line: scenario time + HR.
-  ctx.fillStyle = '#3ddc97';
+  ctx.fillStyle = '#34d3a3';
   ctx.font = 'bold 18px ui-monospace, monospace';
   ctx.textAlign = 'left';
   ctx.fillText(`HR  ${Math.round(frame.heart_rate_bpm)} bpm`, 18, 36);
@@ -120,7 +135,7 @@ function paint(
   // SpO2 banner.
   const spo2 = frame.spo2_fraction;
   const spo2Color =
-    spo2 >= 0.94 ? '#3ddc97' : spo2 >= 0.88 ? '#ffb547' : '#ff5c8a';
+    spo2 >= 0.94 ? '#34d3a3' : spo2 >= 0.88 ? '#f5b042' : '#ef4358';
   ctx.fillStyle = spo2Color;
   ctx.font = 'bold 56px ui-monospace, monospace';
   ctx.textAlign = 'right';
@@ -129,16 +144,17 @@ function paint(
   ctx.fillStyle = '#98a4b3';
   ctx.fillText('SpO₂', CANVAS_W - 18, 90);
 
-  // Trace.
+  // Trace — read the ring in chronological order.
   const baseY = CANVAS_H - 20;
   const traceH = 160;
   const traceW = CANVAS_W - 40;
   ctx.strokeStyle = spo2Color;
   ctx.lineWidth = 2;
   ctx.beginPath();
-  for (let i = 0; i < history.length; i += 1) {
-    const v = Math.max(0, Math.min(1, history[i] ?? 0));
-    const x = 20 + (i / (history.length - 1)) * traceW;
+  for (let i = 0; i < HISTORY; i += 1) {
+    const idx = (head + i) % HISTORY;
+    const v = Math.max(0, Math.min(1, history[idx] ?? 0));
+    const x = 20 + (i / (HISTORY - 1)) * traceW;
     const y = baseY - v * traceH;
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);

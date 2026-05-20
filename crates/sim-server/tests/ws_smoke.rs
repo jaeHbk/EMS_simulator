@@ -2,11 +2,16 @@
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::panic,
-    reason = "Integration test: panics on unexpected failure are the desired signal."
+    clippy::too_many_lines,
+    clippy::float_cmp,
+    reason = "Integration test: panics on unexpected failure are the desired signal; literal-float comparison is intentional for fixed wire values."
 )]
-//! End-to-end smoke test: bind the server on an ephemeral port, connect
-//! a WebSocket client, assert we receive a `Hello` and at least one
-//! `VitalsFrame` within a few seconds.
+//! End-to-end smoke tests:
+//! - WebSocket emits `Hello` then `VitalsFrame`s with `interventions` +
+//!   `run_state` fields.
+//! - `GET /api/scenarios` returns a non-empty list with the expected stub.
+//! - `POST /api/actions` returns 202 and the `action_id` echoes back in a
+//!   subsequent `VitalsFrame.interventions`.
 
 use futures_util::{SinkExt, StreamExt};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -78,7 +83,7 @@ async fn ws_emits_hello_then_vitals_frames() {
     assert_eq!(hello["tick_hz"], 50);
     assert!(hello["scenario"].is_string());
 
-    // 2. At least 5 vitals frames.
+    // 2. At least 5 vitals frames; verify wire-format additions.
     let mut frames = 0u32;
     while frames < 5 {
         let msg = tokio::time::timeout(Duration::from_secs(2), socket.next())
@@ -91,11 +96,78 @@ async fn ws_emits_hello_then_vitals_frames() {
         if v.get("tick").is_some() {
             assert!(v["heart_rate_bpm"].as_f64().unwrap() > 0.0);
             assert!((0.0..=1.0).contains(&v["spo2_fraction"].as_f64().unwrap()));
+            // New fields from the UX-refresh wire additions:
+            assert!(v["interventions"].is_array(), "interventions must be array");
+            let rs = &v["run_state"];
+            assert!(rs.is_object(), "run_state must be object");
+            assert_eq!(rs["mode"], "running");
+            assert_eq!(rs["rate_multiplier"].as_f64().unwrap(), 1.0);
             frames += 1;
         }
     }
 
-    // 3. Clean close.
+    // 3. GET /api/scenarios returns the stub list.
+    let scenarios: serde_json::Value = client
+        .get(format!("{base}/api/scenarios"))
+        .timeout(Duration::from_secs(2))
+        .send()
+        .await
+        .expect("scenarios send")
+        .json()
+        .await
+        .expect("scenarios json");
+    assert!(scenarios.is_array(), "scenarios must be a JSON array");
+    let arr = scenarios.as_array().unwrap();
+    assert!(!arr.is_empty(), "scenarios must be non-empty");
+    let s0 = &arr[0];
+    assert!(s0["id"].is_string());
+    assert!(s0["name"].is_string());
+    assert!(s0["chief_complaint"].is_string());
+    assert!(s0["events"].is_array());
+
+    // 4. POST /api/actions; the action_id must echo on a later frame.
+    let action_id = "01TESTACTIONABCDEFGHIJKLMN".to_owned();
+    let resp = client
+        .post(format!("{base}/api/actions"))
+        .json(&serde_json::json!({
+            "action_id": action_id,
+            "action_type": "apply_equipment",
+            "params": { "equipment": "nrb", "attach_point": "face", "fio2": 0.85 },
+            "client_ts_ms": 0
+        }))
+        .timeout(Duration::from_secs(2))
+        .send()
+        .await
+        .expect("post action");
+    assert_eq!(resp.status().as_u16(), 202);
+    let accepted: serde_json::Value = resp.json().await.expect("accepted json");
+    assert_eq!(accepted["action_id"], action_id);
+    assert!(accepted["accepted_at_tick"].as_u64().is_some());
+
+    // Drain frames for up to 2 s waiting for the echo.
+    let mut saw_echo = false;
+    let deadline = std::time::Instant::now() + Duration::from_secs(2);
+    while std::time::Instant::now() < deadline && !saw_echo {
+        let Ok(Some(Ok(msg))) =
+            tokio::time::timeout(Duration::from_millis(500), socket.next()).await
+        else {
+            continue;
+        };
+        let Ok(text) = msg.into_text() else { continue };
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) else {
+            continue;
+        };
+        if let Some(arr) = v["interventions"].as_array()
+            && arr
+                .iter()
+                .any(|x| x == &serde_json::Value::String(action_id.clone()))
+        {
+            saw_echo = true;
+        }
+    }
+    assert!(saw_echo, "action_id never echoed in interventions");
+
+    // 5. Clean close.
     let _ = socket
         .send(tokio_tungstenite::tungstenite::Message::Close(None))
         .await;

@@ -2,23 +2,28 @@
 //!
 //! Routes:
 //!
-//! | Method | Path              | Purpose                                |
-//! |--------|-------------------|----------------------------------------|
-//! | GET    | `/healthz`        | Liveness check.                        |
-//! | GET    | `/api/version`    | Server build info as JSON.             |
-//! | GET    | `/api/vitals/ws`  | WebSocket — emits `Hello` then `VitalsFrame`s at 50 Hz. |
-//! | GET    | `/*` (fallback)   | Static files from `engine/web/dist` (configurable). |
+//! | Method | Path                | Purpose                                |
+//! |--------|---------------------|----------------------------------------|
+//! | GET    | `/healthz`          | Liveness check.                        |
+//! | GET    | `/api/version`      | Server build info as JSON.             |
+//! | GET    | `/api/vitals/ws`    | WebSocket — emits `Hello` then `VitalsFrame`s at 50 Hz. |
+//! | POST   | `/api/actions`      | Accept an `ActionEnvelope`; echoed in subsequent frames. |
+//! | GET    | `/api/scenarios`    | List bundled scenarios (currently the apnea/NRB stub). |
+//! | GET    | `/*` (fallback)     | Static files from `engine/web/dist` (configurable). |
 //!
 //! CORS is permissive in development (the Vite dev server runs on a
 //! different port). In a production build the static-file fallback serves
 //! the same origin, so CORS becomes a no-op.
 
 use crate::sim::SimHandle;
-use crate::wire::{Hello, HelloKind, VitalsFrame};
+use crate::wire::{
+    ActionAccepted, ActionEnvelope, Hello, HelloKind, Scenario, ScenarioEvent, VitalsFrame,
+};
 use axum::extract::State;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
+use axum::http::StatusCode;
 use axum::response::IntoResponse;
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -45,6 +50,8 @@ pub fn router(sim: SimHandle, static_dir: Option<PathBuf>) -> Router {
         .route("/healthz", get(healthz))
         .route("/api/version", get(version))
         .route("/api/vitals/ws", get(vitals_ws))
+        .route("/api/actions", post(post_action))
+        .route("/api/scenarios", get(list_scenarios))
         .with_state(state)
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
@@ -157,4 +164,55 @@ async fn vitals_ws_loop(mut socket: WebSocket, state: Arc<AppState>) {
 async fn send_frame(socket: &mut WebSocket, frame: VitalsFrame) -> Result<(), axum::Error> {
     let text = serde_json::to_string(&frame).map_err(axum::Error::new)?;
     socket.send(Message::Text(text.into())).await
+}
+
+/// Accept an `ActionEnvelope` and forward it to the driver. Returns 202
+/// once the action is queued; the `action_id` appears in subsequent
+/// `VitalsFrame.interventions` entries during the retention window.
+async fn post_action(
+    State(state): State<Arc<AppState>>,
+    Json(envelope): Json<ActionEnvelope>,
+) -> Result<(StatusCode, Json<ActionAccepted>), StatusCode> {
+    let action_id = envelope.action_id.clone();
+    match state.sim.submit_action(envelope).await {
+        Ok(tick) => Ok((
+            StatusCode::ACCEPTED,
+            Json(ActionAccepted {
+                action_id,
+                accepted_at_tick: tick,
+            }),
+        )),
+        Err(_) => {
+            // The driver task is gone — server is shutting down or wedged.
+            Err(StatusCode::SERVICE_UNAVAILABLE)
+        }
+    }
+}
+
+/// Static list of bundled scenarios. Real scenario authoring (YAML schema,
+/// validation, multi-scenario selection) lands later; this stub gives the
+/// week-3 picker UI a typed list to render against.
+async fn list_scenarios(State(state): State<Arc<AppState>>) -> Json<Vec<Scenario>> {
+    let scenario_id = state.sim.scenario().to_owned();
+    Json(vec![Scenario {
+        id: scenario_id.clone(),
+        name: "Apnea + Non-rebreather".to_owned(),
+        difficulty: "intermediate".to_owned(),
+        duration_s: 390.0,
+        chief_complaint: "Unresponsive adult, shallow respirations".to_owned(),
+        events: vec![
+            ScenarioEvent {
+                at_s: 0.0,
+                label: "scenario start".to_owned(),
+            },
+            ScenarioEvent {
+                at_s: 60.0,
+                label: "respiratory drive falling".to_owned(),
+            },
+            ScenarioEvent {
+                at_s: 240.0,
+                label: "SpO₂ < 50%".to_owned(),
+            },
+        ],
+    }])
 }

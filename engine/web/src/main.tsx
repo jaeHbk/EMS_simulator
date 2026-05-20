@@ -1,7 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { bootstrapSettings } from './ui/settings/useSettings';
 import './styles.css';
+
+bootstrapSettings();
 
 const container = document.getElementById('root');
 if (!container) {
