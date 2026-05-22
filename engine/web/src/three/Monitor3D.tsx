@@ -108,63 +108,117 @@ function paint(
   history: Float32Array,
   head: number,
 ) {
-  // Background.
-  ctx.fillStyle = '#0a0e14';
+  ctx.fillStyle = '#050a12';
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-  // Subtle grid.
-  ctx.strokeStyle = 'rgba(53, 70, 90, 0.4)';
-  ctx.lineWidth = 1;
+  // Grid
+  ctx.strokeStyle = 'rgba(40, 60, 80, 0.3)';
+  ctx.lineWidth = 0.5;
+  for (let i = 1; i < 10; i += 1) {
+    const y = (CANVAS_H * i) / 10;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_W, y); ctx.stroke();
+  }
   for (let i = 1; i < 8; i += 1) {
-    const y = (CANVAS_H * i) / 8;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(CANVAS_W, y);
-    ctx.stroke();
+    const x = (CANVAS_W * i) / 8;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CANVAS_H); ctx.stroke();
   }
 
-  // Top line: scenario time + HR.
-  ctx.fillStyle = '#34d3a3';
-  ctx.font = 'bold 18px ui-monospace, monospace';
-  ctx.textAlign = 'left';
-  ctx.fillText(`HR  ${Math.round(frame.heart_rate_bpm)} bpm`, 18, 36);
-  ctx.fillStyle = '#98a4b3';
-  ctx.font = '14px ui-monospace, monospace';
-  ctx.fillText(`t = ${frame.sim_time_s.toFixed(1)} s`, 18, 58);
-
-  // SpO2 banner.
+  // ─── Top row: HR + SpO2 ───
   const spo2 = frame.spo2_fraction;
-  const spo2Color =
-    spo2 >= 0.94 ? '#34d3a3' : spo2 >= 0.88 ? '#f5b042' : '#ef4358';
-  ctx.fillStyle = spo2Color;
-  ctx.font = 'bold 56px ui-monospace, monospace';
-  ctx.textAlign = 'right';
-  ctx.fillText(`${(spo2 * 100).toFixed(0)}%`, CANVAS_W - 18, 70);
-  ctx.font = '14px ui-monospace, monospace';
-  ctx.fillStyle = '#98a4b3';
-  ctx.fillText('SpO₂', CANVAS_W - 18, 90);
+  const hrColor = '#34d3a3';
+  const spo2Color = spo2 >= 0.94 ? '#41c7ff' : spo2 >= 0.88 ? '#f5b042' : '#ef4358';
 
-  // Trace — read the ring in chronological order.
-  const baseY = CANVAS_H - 20;
-  const traceH = 160;
-  const traceW = CANVAS_W - 40;
+  // HR
+  ctx.fillStyle = hrColor;
+  ctx.font = 'bold 42px ui-monospace, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText(`${Math.round(frame.heart_rate_bpm)}`, 16, 52);
+  ctx.font = '11px ui-monospace, monospace';
+  ctx.fillStyle = '#6a8094';
+  ctx.fillText('HR bpm', 16, 68);
+
+  // SpO2
+  ctx.fillStyle = spo2Color;
+  ctx.font = 'bold 42px ui-monospace, monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(`${(spo2 * 100).toFixed(0)}`, CANVAS_W - 16, 52);
+  ctx.font = '11px ui-monospace, monospace';
+  ctx.fillStyle = '#6a8094';
+  ctx.fillText('SpO₂ %', CANVAS_W - 16, 68);
+
+  // ─── Middle row: RR, ETCO2, BP ───
+  const midY = 105;
+  ctx.font = 'bold 22px ui-monospace, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#ffd166';
+  ctx.fillText(`${Math.round(frame.respiratory_rate_bpm)}`, 16, midY);
+  ctx.font = '10px ui-monospace, monospace';
+  ctx.fillStyle = '#6a8094';
+  ctx.fillText('RR /min', 16, midY + 14);
+
+  ctx.font = 'bold 22px ui-monospace, monospace';
+  ctx.fillStyle = '#ffd166';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${frame.etco2_mmhg.toFixed(0)}`, CANVAS_W / 2, midY);
+  ctx.font = '10px ui-monospace, monospace';
+  ctx.fillStyle = '#6a8094';
+  ctx.fillText('ETCO₂ mmHg', CANVAS_W / 2, midY + 14);
+
+  ctx.font = 'bold 22px ui-monospace, monospace';
+  ctx.fillStyle = '#e7ecf2';
+  ctx.textAlign = 'right';
+  ctx.fillText(`${Math.round(frame.systolic_bp_mmhg)}/${Math.round(frame.diastolic_bp_mmhg)}`, CANVAS_W - 16, midY);
+  ctx.font = '10px ui-monospace, monospace';
+  ctx.fillStyle = '#6a8094';
+  ctx.fillText('NIBP mmHg', CANVAS_W - 16, midY + 14);
+
+  // ─── SpO2 pleth trace ───
+  const traceTop = 140;
+  const traceH = 80;
+  const traceW = CANVAS_W - 32;
   ctx.strokeStyle = spo2Color;
   ctx.lineWidth = 2;
   ctx.beginPath();
   for (let i = 0; i < HISTORY; i += 1) {
     const idx = (head + i) % HISTORY;
-    const v = Math.max(0, Math.min(1, history[idx] ?? 0));
-    const x = 20 + (i / (HISTORY - 1)) * traceW;
-    const y = baseY - v * traceH;
+    const v = Math.max(0.6, Math.min(1, history[idx] ?? 0.97));
+    const norm = (v - 0.6) / 0.4;
+    const x = 16 + (i / (HISTORY - 1)) * traceW;
+    const y = traceTop + traceH - norm * traceH;
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
   ctx.stroke();
 
-  // Respiratory + ETCO2 readouts.
-  ctx.fillStyle = '#e7ecf2';
-  ctx.font = 'bold 16px ui-monospace, monospace';
+  // ─── ECG-like trace (simple sine wave for visual) ───
+  const ecgTop = 230;
+  const ecgH = 60;
+  ctx.strokeStyle = hrColor;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  const hr = frame.heart_rate_bpm;
+  for (let i = 0; i < HISTORY; i += 1) {
+    const x = 16 + (i / (HISTORY - 1)) * traceW;
+    const phase = ((head + i) % HISTORY) / (50 / (hr / 60));
+    const frac = phase - Math.floor(phase);
+    let v = 0;
+    if (frac < 0.05) v = -0.1;
+    else if (frac < 0.1) v = 0.9 * Math.sin((frac - 0.05) / 0.05 * Math.PI);
+    else if (frac < 0.15) v = -0.2;
+    else if (frac < 0.35) v = 0.15 * Math.sin((frac - 0.15) / 0.2 * Math.PI);
+    const y = ecgTop + ecgH / 2 - v * ecgH * 0.4;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // ─── Bottom: time ───
+  ctx.fillStyle = '#4a5f73';
+  ctx.font = '11px ui-monospace, monospace';
   ctx.textAlign = 'left';
-  ctx.fillText(`RR ${Math.round(frame.respiratory_rate_bpm)}`, 18, baseY - 110);
-  ctx.fillText(`ETCO₂ ${frame.etco2_mmhg.toFixed(0)}`, 18, baseY - 90);
+  const m = Math.floor(frame.sim_time_s / 60);
+  const s = Math.floor(frame.sim_time_s % 60);
+  ctx.fillText(`T+ ${m}:${s < 10 ? '0' : ''}${s}`, 16, CANVAS_H - 8);
+  ctx.textAlign = 'right';
+  ctx.fillText(`${frame.temperature_c.toFixed(1)}°C`, CANVAS_W - 16, CANVAS_H - 8);
 }

@@ -98,16 +98,26 @@ export function ScenarioPicker({ status }: Props) {
     }
   };
 
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
   const handleSelect = (s: Scenario): void => {
     if (s.id === activeScenarioId) {
       setOpen(false);
       buttonRef.current?.focus();
       return;
     }
-    // TODO: POST /api/run/restart with scenario_id once that endpoint
-    // exists. For now we just close.
-    setOpen(false);
-    buttonRef.current?.focus();
+    setLoadingId(s.id);
+    fetch('/api/run/restart', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ scenario_id: s.id }),
+    })
+      .catch(() => {})
+      .finally(() => {
+        setLoadingId(null);
+        setOpen(false);
+        buttonRef.current?.focus();
+      });
   };
 
   const buttonLabel = (() => {
@@ -196,6 +206,9 @@ export function ScenarioPicker({ status }: Props) {
                       </span>
                       <span className="visually-hidden">(active)</span>
                     </>
+                  )}
+                  {s.id === loadingId && (
+                    <span className="scenario-row__active">⏳</span>
                   )}
                 </div>
                 <div className="scenario-row__meta">

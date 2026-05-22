@@ -231,6 +231,58 @@ a:focus-visible {
   background: var(--bg-2);
 }
 
+.run-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-1);
+  background: rgba(52, 211, 163, 0.1);
+  border: 1px solid rgba(52, 211, 163, 0.3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+
+.run-pill--paused {
+  background: rgba(245, 176, 66, 0.1);
+  border-color: rgba(245, 176, 66, 0.3);
+  color: var(--abnormal);
+}
+
+.run-pill__dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px rgba(52, 211, 163, 0.6);
+  animation: pill-pulse 2s ease-in-out infinite;
+}
+
+.run-pill--paused .run-pill__dot {
+  background: var(--abnormal);
+  box-shadow: 0 0 6px rgba(245, 176, 66, 0.6);
+  animation: none;
+}
+
+.run-pill__mode {
+  font-weight: 600;
+}
+
+.run-pill__rate {
+  color: var(--fg-dim);
+}
+
+@keyframes pill-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .run-pill__dot { animation: none; }
+}
+
 .sim-clock {
   display: inline-flex;
   align-items: baseline;
@@ -306,6 +358,147 @@ a:focus-visible {
   font-size: var(--fs-12);
   color: var(--fg-mute);
   font-style: italic;
+}
+
+/* ─── Equipment panel ────────────────────────────────────────────────── */
+
+.eq-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.eq-btn {
+  appearance: none;
+  display: grid;
+  grid-template-columns: 1.6rem 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-2);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-1);
+  color: var(--fg);
+  font-size: var(--fs-13);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur-1) var(--ease-std),
+              background var(--dur-1) var(--ease-std);
+}
+
+.eq-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: rgba(52, 211, 163, 0.06);
+}
+
+.eq-btn:active:not(:disabled) {
+  background: rgba(52, 211, 163, 0.12);
+}
+
+.eq-btn--attached {
+  border-color: var(--accent);
+  opacity: 0.7;
+  cursor: default;
+}
+
+.eq-btn--firing {
+  animation: eq-pulse 0.6s var(--ease-emph);
+}
+
+@keyframes eq-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(52, 211, 163, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(52, 211, 163, 0.15); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.eq-btn__icon {
+  font-size: 1rem;
+  text-align: center;
+}
+
+.eq-btn__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eq-btn__status {
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
+  color: var(--fg-mute);
+}
+
+.eq-btn--attached .eq-btn__status {
+  color: var(--accent);
+}
+
+/* ─── Action log ─────────────────────────────────────────────────────── */
+
+.action-log {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.action-log__entry {
+  display: grid;
+  grid-template-columns: 0.6rem 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px var(--space-2);
+  border-radius: var(--radius-1);
+  font-size: var(--fs-12);
+  animation: log-slide-in 0.3s var(--ease-std);
+}
+
+@keyframes log-slide-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.action-log__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--fg-mute);
+}
+
+.action-log__entry--pending .action-log__dot {
+  background: var(--abnormal);
+  animation: dot-blink 1s infinite;
+}
+.action-log__entry--confirmed .action-log__dot {
+  background: var(--accent);
+}
+.action-log__entry--rejected .action-log__dot {
+  background: var(--alarm);
+}
+
+@keyframes dot-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.action-log__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg-dim);
+}
+
+.action-log__time {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--fg-mute);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eq-btn--firing { animation: none; }
+  .action-log__entry { animation: none; }
+  .action-log__entry--pending .action-log__dot { animation: none; }
 }
 
 /* ─── Scene area ─────────────────────────────────────────────────────── */

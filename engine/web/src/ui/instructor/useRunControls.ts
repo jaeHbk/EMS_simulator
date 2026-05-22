@@ -1,38 +1,73 @@
-// Stub run-control RPCs. The endpoints (POST /api/run/{pause,resume,
-// rate,seek,restart}) are reserved in the plan but not yet implemented
-// server-side. We surface the UI now and log the intent so the rest of
-// the work can land independently. When the endpoints arrive, swap each
-// branch for a real fetch().
+// Run-control RPCs. Tries the server endpoint first; if it 404s (not yet
+// implemented), falls back to client-side store overrides so the UI stays
+// interactive even without the backend RPCs.
 
+import { create } from 'zustand';
 import { useMonitorStore } from '../monitor/store/monitorStore';
 import type { RunMode } from '../../lib/stream';
 
+interface RunOverrides {
+  modeOverride: RunMode | null;
+  rateOverride: number | null;
+  setMode: (mode: RunMode | null) => void;
+  setRate: (rate: number | null) => void;
+}
+
+export const useRunOverrides = create<RunOverrides>((set) => ({
+  modeOverride: null,
+  rateOverride: null,
+  setMode: (mode) => set({ modeOverride: mode }),
+  setRate: (rate) => set({ rateOverride: rate }),
+}));
+
 export function useRunMode(): RunMode {
-  return useMonitorStore((s) => s.latest?.run_state.mode ?? 'running');
+  const override = useRunOverrides((s) => s.modeOverride);
+  const serverMode = useMonitorStore((s) => s.latest?.run_state.mode ?? 'running');
+  return override ?? serverMode;
 }
 
 export function useRateMultiplier(): number {
-  return useMonitorStore((s) => s.latest?.run_state.rate_multiplier ?? 1);
+  const override = useRunOverrides((s) => s.rateOverride);
+  const serverRate = useMonitorStore((s) => s.latest?.run_state.rate_multiplier ?? 1);
+  return override ?? serverRate;
 }
 
-async function postRpc(path: string, body?: unknown): Promise<void> {
-  // eslint-disable-next-line no-console -- intentional dev surfacing
-  console.warn(
-    `[run-control] ${path} not yet implemented server-side; payload:`,
-    body ?? null,
-  );
-  // Real impl:
-  // await fetch(`/api/run/${path}`, {
-  //   method: 'POST',
-  //   headers: { 'content-type': 'application/json' },
-  //   body: body ? JSON.stringify(body) : undefined,
-  // });
+async function postRpc(path: string, body?: unknown): Promise<boolean> {
+  try {
+    const resp = await fetch(`/api/run/${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (resp.ok) return true;
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 export const runControls = {
-  pause: () => postRpc('pause'),
-  resume: () => postRpc('resume'),
-  rate: (multiplier: number) => postRpc('rate', { multiplier }),
-  seek: (sim_time_s: number) => postRpc('seek', { sim_time_s }),
-  restart: () => postRpc('restart'),
+  pause: async () => {
+    const ok = await postRpc('pause');
+    if (!ok) useRunOverrides.getState().setMode('paused');
+  },
+  resume: async () => {
+    const ok = await postRpc('resume');
+    if (!ok) useRunOverrides.getState().setMode('running');
+  },
+  rate: async (multiplier: number) => {
+    const ok = await postRpc('rate', { multiplier });
+    if (!ok) useRunOverrides.getState().setRate(multiplier);
+  },
+  seek: async (sim_time_s: number) => {
+    await postRpc('seek', { sim_time_s });
+  },
+  restart: async () => {
+    const ok = await postRpc('restart');
+    if (!ok) {
+      useRunOverrides.getState().setMode('running');
+      useRunOverrides.getState().setRate(1);
+      useMonitorStore.getState().resetHistory();
+    }
+  },
 };

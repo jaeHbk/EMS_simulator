@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useMonitorStore } from '../ui/monitor/store/monitorStore';
+import { startDemoMode, stopDemoMode } from './demoVitals';
 
 export interface VitalsFrame {
   tick: number;
@@ -157,6 +158,7 @@ export function useVitalsStream(options: Options = {}): {
       socket = ws;
       ws.addEventListener('open', () => {
         attemptRef.current = 0;
+        stopDemoMode();
       });
       ws.addEventListener('message', (event) => {
         if (typeof event.data !== 'string') return;
@@ -197,6 +199,16 @@ export function useVitalsStream(options: Options = {}): {
           attempt: attemptRef.current,
           nextRetryMs: wait,
         });
+        // After 3 failed attempts, start demo mode so the UI stays alive
+        if (attemptRef.current >= 3) {
+          startDemoMode();
+          setStatus({
+            kind: 'connected',
+            serverVersion: 'demo',
+            scenario: 'demo-scenario',
+            tickHz: 50,
+          });
+        }
         retryTimer = setTimeout(connect, wait);
       });
     };

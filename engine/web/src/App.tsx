@@ -1,5 +1,6 @@
 import { useVitalsStream } from './lib/stream';
 import { useInterventionsWatcher } from './lib/useInterventions';
+import { useEquipmentHotkeys } from './lib/useKeyboard';
 import { AlarmSlot } from './ui/shell/AlarmSlot';
 import { AppShell } from './ui/shell/AppShell';
 import { LeftRail } from './ui/shell/LeftRail';
@@ -8,10 +9,9 @@ import { SceneSlot } from './ui/shell/SceneSlot';
 import { TopBar } from './ui/shell/TopBar';
 
 export function App() {
-  // Frames are pushed straight into the monitor store; only `status`
-  // (low-frequency) flows through React state.
   const { status } = useVitalsStream();
   useInterventionsWatcher();
+  useEquipmentHotkeys();
 
   return (
     <AppShell

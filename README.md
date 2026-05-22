@@ -14,21 +14,29 @@ shipped) and [`docs/SESSION_HANDOFF.md`](docs/SESSION_HANDOFF.md)
 
 ## What the demo shows
 
-- An ambulance compartment built from primitives: stretcher, bench seat,
-  cabinets, O₂ wall outlet, windows, grab rail.
-- A breathing primitive patient with cyanosis + pallor uniforms driven
-  by live SpO₂ / MAP.
-- A bedside vitals monitor inside the 3D scene, plus a full clinical
-  monitor in the right rail: synthesized **Lead-II ECG**, **pleth**, and
-  **capnogram** waveforms; six numeric tiles with sparkline trends;
+- A stylized ambulance compartment: Stryker-style stretcher with scissor
+  legs and side rails, bench seat, upper cabinets, O₂ wall outlet,
+  windows, grab rail, interior LED lighting.
+- A breathing patient with hospital gown, ECG lead dots, pulse oximeter,
+  and cyanosis + pallor uniforms driven by live SpO₂ / MAP.
+- A multi-vital **bedside monitor** in the 3D scene (HR, SpO₂, RR,
+  ETCO₂, BP, Temp with ECG and pleth traces), plus a full **clinical
+  monitor** in the right rail: synthesized **Lead-II ECG**, **pleth**,
+  and **capnogram** waveforms; six numeric tiles with sparkline trends;
   priority-tiered alarm banner with audible tones + 2-min silence.
-- Seven equipment items on the bench (NRB mask, BVM, IV pole,
-  defibrillator, drug box, O₂ tank, intubation kit) — click to apply.
-  The action posts to the server, the server echoes it back, the UI
-  flips from optimistic-pending to confirmed.
-- Top-bar scenario picker + settings dialog (audio mute, color-blind
-  palette, reduced motion, units). Instructor drawer behind passcode
-  `1234` for pause / time-warp / restart (server endpoints stubbed).
+- **Interactive equipment panel** in the left rail — seven items (NRB
+  mask, BVM, IV pole, defibrillator, drug box, O₂ tank, intubation kit)
+  with click-to-apply buttons, keyboard hotkeys (N/B/I/D/G/O/T), and a
+  live action log showing pending/confirmed/rejected status.
+- **Run-state indicator** in the top bar (LIVE/PAUSED pill with rate
+  multiplier), scenario picker, and settings dialog (audio mute,
+  color-blind palette, reduced motion, large vitals, units).
+- **Instructor controls** behind passcode `1234`: pause/resume,
+  time-warp (0.25×–8×), restart — all functional client-side even
+  without server endpoints.
+- **Demo mode**: if the Rust backend isn't running, the frontend
+  automatically synthesizes realistic deteriorating-then-recovering
+  vitals so the full UI is interactive standalone.
 
 ## Prerequisites
 
@@ -97,6 +105,17 @@ cd engine/web && npm run dev
 
 Open <http://127.0.0.1:5173>. Vite proxies `/api` and `/healthz` to the
 Rust server.
+
+### Frontend-only (no Rust backend)
+
+```sh
+cd engine/web && npm run dev
+```
+
+Open <http://127.0.0.1:5173>. After ~3 seconds of failed WebSocket
+connections, **demo mode** activates automatically — synthesizing a
+5-minute patient scenario (stable → deterioration → recovery) so the
+full UI is interactive without the backend.
 
 ### Other recipes
 
