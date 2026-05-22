@@ -65,3 +65,6 @@ __pycache__/
 .env
 .env.*
 !.env.example
+
+# Superpowers brainstorming artifacts (visual companion sessions, etc.)
+.superpowers/
