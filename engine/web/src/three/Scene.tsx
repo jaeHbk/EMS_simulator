@@ -9,12 +9,15 @@ import { InteriorLightRig } from './lights/InteriorLightRig';
 
 export function Scene() {
   // Camera lives just inside the rear doors looking toward the bulkhead.
-  // The stretcher (and patient) sit at z=0, slightly toward the bulkhead so
-  // the camera frames patient + bedside monitor.
+  // The compartment is a sealed box (x∈[-1.8,1.8], z∈[-1.0,1.0], y∈[0,2.1]),
+  // so the eye must sit *inside* those walls — otherwise it stares at the
+  // unlit back face of the curb-side wall and the whole frame goes flat
+  // grey. Sit it near the rear-curb corner, well within the shell, angled
+  // toward the patient + bedside monitor.
   return (
     <Canvas
       shadows
-      camera={{ position: [2.4, 1.7, 2.2], fov: 36 }}
+      camera={{ position: [1.45, 1.6, 0.75], fov: 42 }}
       dpr={[1, 1.5]}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
       role="img"
@@ -42,15 +45,21 @@ export function Scene() {
           Two shadow systems were the biggest 60 fps risk on integrated
           GPUs per the perf audit; one is enough. */}
 
+      {/* Orbit is constrained to an arc that keeps the eye *inside* the
+          compartment shell. The cabin is narrow on z (±1.0 m), so a free
+          orbit would punch the camera through the curb wall and flatten
+          the frame to grey. Distance + azimuth + polar limits below were
+          chosen (and screenshot-verified) so every reachable pose stays
+          within x∈[-1.7,1.7], z∈[-0.9,0.9], y∈[0.2,1.95]. */}
       <OrbitControls
         target={[0, 1.0, 0]}
         enablePan={false}
-        minDistance={2}
-        maxDistance={4.5}
-        minPolarAngle={Math.PI / 4}
+        minDistance={1.2}
+        maxDistance={1.7}
+        minPolarAngle={Math.PI / 3}
         maxPolarAngle={Math.PI / 2.05}
-        minAzimuthAngle={-Math.PI / 2.5}
-        maxAzimuthAngle={Math.PI / 2.5}
+        minAzimuthAngle={Math.PI / 3}
+        maxAzimuthAngle={Math.PI * 0.6}
         makeDefault
       />
     </Canvas>
