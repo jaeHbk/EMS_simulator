@@ -47,8 +47,10 @@ export function HotspotMarker({ id, label, position }: Props) {
 
   return (
     <group position={position}>
+      {/* Generous invisible hit disc for mouse: the 3D raycaster picks the
+          nearest hotspot under the cursor, so clustered hotspots never
+          fight over a click the way overlapping DOM buttons would. */}
       <mesh
-        ref={ringRef}
         rotation={[-Math.PI / 2, 0, 0]}
         onPointerOver={(e) => {
           e.stopPropagation();
@@ -60,18 +62,25 @@ export function HotspotMarker({ id, label, position }: Props) {
         }}
         onClick={onClick}
       >
+        <circleGeometry args={[0.1, 24]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+      {/* Visible pulsing ring (decorative; dims with camera distance). */}
+      <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} raycast={() => null}>
         <ringGeometry args={[0.045, 0.07, 24]} />
         <meshBasicMaterial color="#5ab0ff" transparent opacity={0.55} />
       </mesh>
+      {/* Keyboard/SR affordance only — pointer-events:none (see CSS) so it
+          never intercepts mouse clicks meant for the hit disc above. */}
       <Html
         center
         distanceFactor={6}
         zIndexRange={[0, 0]}
-        wrapperClass="equipment-a11y"
+        wrapperClass="hotspot-a11y"
       >
         <button
           type="button"
-          className="equipment-a11y__btn"
+          className="hotspot-a11y__btn"
           aria-label={`Assess ${label}`}
           onClick={(e) => {
             e.stopPropagation();

@@ -61,6 +61,12 @@ export function PickableMesh({
     e.stopPropagation();
     downAt.current = { x: e.clientX, y: e.clientY };
     dragging.current = false;
+    // Capture the pointer so move/up keep firing on this mesh even when the
+    // cursor drags off it — otherwise a drag-release lands on whatever is
+    // underneath and onPick never runs.
+    if (draggable) {
+      (e.target as Element | undefined)?.setPointerCapture?.(e.pointerId);
+    }
   };
   const handlePointerMove = (e: ThreeEvent<PointerEvent>): void => {
     if (!downAt.current || !draggable) return;
@@ -75,6 +81,9 @@ export function PickableMesh({
     if (disabled || !downAt.current) return;
     e.stopPropagation();
     downAt.current = null;
+    if (draggable) {
+      (e.target as Element | undefined)?.releasePointerCapture?.(e.pointerId);
+    }
     // Click OR drag-release both apply (the drag is an affordance, not a
     // free-positioning gesture — the item snaps to its attach pose).
     if (!attached) onPick();
