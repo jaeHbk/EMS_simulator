@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { newActionId, useActionsStore } from './actions';
+import {
+  attachedFromRecords,
+  newActionId,
+  useActionsStore,
+  type ActionRecord,
+} from './actions';
 
 describe('newActionId', () => {
   it('produces a 26-character Crockford-base32 string', () => {
@@ -87,5 +92,38 @@ describe('useActionsStore.reconcile', () => {
     reconcile([]);
     expect(useActionsStore.getState().records.has('D')).toBe(false);
     expect(useActionsStore.getState().records.has('E')).toBe(false);
+  });
+});
+
+describe('attachedFromRecords', () => {
+  const rec = (over: Partial<ActionRecord>): ActionRecord => ({
+    action_id: Math.random().toString(36).slice(2),
+    action_type: 'apply_equipment',
+    params: { equipment: 'nrb' },
+    status: 'confirmed',
+    sentAtMs: 1000,
+    ...over,
+  });
+
+  it('counts a confirmed apply as attached', () => {
+    expect(attachedFromRecords([rec({})]).has('nrb')).toBe(true);
+  });
+
+  it('ignores rejected actions', () => {
+    expect(attachedFromRecords([rec({ status: 'rejected' })]).has('nrb')).toBe(
+      false,
+    );
+  });
+
+  it('a later remove wins over an earlier apply', () => {
+    const applied = rec({ action_type: 'apply_equipment', sentAtMs: 1000 });
+    const removed = rec({ action_type: 'remove_equipment', sentAtMs: 2000 });
+    expect(attachedFromRecords([applied, removed]).has('nrb')).toBe(false);
+  });
+
+  it('a later apply wins over an earlier remove (re-attach)', () => {
+    const removed = rec({ action_type: 'remove_equipment', sentAtMs: 1000 });
+    const applied = rec({ action_type: 'apply_equipment', sentAtMs: 2000 });
+    expect(attachedFromRecords([removed, applied]).has('nrb')).toBe(true);
   });
 });

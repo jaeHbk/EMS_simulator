@@ -97,6 +97,33 @@ export const useActionsStore = create<ActionsState>((set, get) => ({
   },
 }));
 
+/** Reduce a set of action records to the equipment IDs currently attached.
+ *  For each equipment, the most-recent non-rejected apply/remove action
+ *  wins; attached iff that latest action is an apply. Pure + testable. */
+export function attachedFromRecords(
+  records: Iterable<ActionRecord>,
+): Set<string> {
+  const latest = new Map<string, ActionRecord>();
+  for (const rec of records) {
+    if (
+      rec.action_type !== 'apply_equipment' &&
+      rec.action_type !== 'remove_equipment'
+    ) {
+      continue;
+    }
+    if (rec.status === 'rejected') continue;
+    const eq = (rec.params as { equipment?: string } | null)?.equipment;
+    if (!eq) continue;
+    const prev = latest.get(eq);
+    if (!prev || rec.sentAtMs > prev.sentAtMs) latest.set(eq, rec);
+  }
+  const attached = new Set<string>();
+  for (const [eq, rec] of latest) {
+    if (rec.action_type === 'apply_equipment') attached.add(eq);
+  }
+  return attached;
+}
+
 /** Crockford-style 26-char ULID-like identifier. Time prefix (10 chars
  *  base32 ms-since-epoch) + 16 random chars. Not cryptographically strong;
  *  enough for client-side idempotency. */

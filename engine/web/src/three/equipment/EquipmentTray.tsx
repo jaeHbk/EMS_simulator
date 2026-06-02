@@ -109,6 +109,14 @@ function EquipmentSlot({ item, isAttached, reducedMotion }: SlotProps) {
     });
   };
 
+  const handleDetach = (): void => {
+    if (!isAttached) return;
+    void postAction({
+      action_type: 'remove_equipment',
+      params: { equipment: item.id, attach_point: item.attachPoint },
+    });
+  };
+
   const Component = COMPONENT_BY_ID[item.id];
   const yaw = item.attachedYaw ?? 0;
 
@@ -117,8 +125,9 @@ function EquipmentSlot({ item, isAttached, reducedMotion }: SlotProps) {
       <PickableMesh
         position={[0, 0, 0]}
         onPick={handlePick}
+        onDetach={handleDetach}
         attached={isAttached}
-        disabled={isAttached && hasAttachedPose}
+        draggable={item.draggable}
         label={item.label}
       >
         <Component />

@@ -123,6 +123,8 @@ a:focus-visible {
 .shell__bottom { grid-area: bottom; }
 
 .shell__top {
+  position: relative;
+  z-index: 10;
   display: flex;
   align-items: center;
   border-bottom: 1px solid var(--line);
@@ -1342,8 +1344,12 @@ a.visually-hidden:focus-visible {
   border: 0;
   color: transparent;
   cursor: default;
-  pointer-events: auto;
-  /* Visible only when keyboard-focused. */
+  /* Keyboard/SR only. Mouse interaction (click, drag) goes through the 3D
+     raycaster on the mesh itself, which disambiguates overlapping items by
+     depth — transparent DOM overlays with pointer-events would otherwise
+     steal clicks from whichever item happens to render in front. Keyboard
+     activation (Enter/Space) still fires onClick with pointer-events off. */
+  pointer-events: none;
 }
 .equipment-a11y__btn:focus-visible {
   outline: 2px solid var(--accent);
@@ -1407,4 +1413,199 @@ a.visually-hidden:focus-visible {
 .rm-override .leftrail,
 .rm-override .alarm-banner {
   transition: none !important;
+}
+
+/* ─── Onboarding wizard ──────────────────────────────────────────────── */
+
+.onboarding {
+  width: 430px;
+  max-width: 92vw;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-3);
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  color: var(--fg);
+  box-shadow: var(--shadow-3);
+  padding: 22px 22px 16px;
+}
+.onboarding::backdrop {
+  background: rgba(3, 6, 12, 0.72);
+  backdrop-filter: blur(3px);
+}
+.onboarding__skip {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: var(--fg-mute);
+  font-size: var(--fs-12);
+  cursor: pointer;
+}
+.onboarding__skip:hover { color: var(--fg-dim); }
+.onboarding__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  font-size: 1.3rem;
+  background: rgba(52, 211, 163, 0.12);
+  border: 1px solid rgba(52, 211, 163, 0.35);
+  margin-bottom: 12px;
+}
+.onboarding__step-k {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.onboarding h2 { margin: 0 0 8px; font-size: 1.18rem; }
+.onboarding p { margin: 0; color: var(--fg-dim); font-size: var(--fs-14); line-height: var(--lh-body); }
+.onboarding .kbd,
+.kbd {
+  font-family: var(--font-mono);
+  background: var(--bg-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-1);
+  padding: 1px 6px;
+  font-size: 0.74rem;
+  color: var(--fg);
+}
+.onboarding__dots { display: flex; gap: 7px; margin-top: 18px; }
+.onboarding__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line-strong); transition: all var(--dur-2) var(--ease-std); }
+.onboarding__dot.is-on { background: var(--accent); width: 20px; border-radius: 4px; }
+.onboarding__row { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; gap: 10px; }
+.onboarding__dont { display: flex; align-items: center; gap: 6px; color: var(--fg-mute); font-size: var(--fs-12); }
+.onboarding__btns { display: flex; gap: 8px; margin-left: auto; }
+.onboarding__nav {
+  font-family: var(--font-sans);
+  font-size: var(--fs-13);
+  padding: 8px 16px;
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-3);
+  color: var(--fg);
+}
+.onboarding__nav:hover { border-color: var(--accent); }
+.onboarding__nav:disabled { opacity: 0.35; cursor: default; }
+.onboarding__nav--primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border: none;
+  color: #04110d;
+  font-weight: 650;
+}
+
+/* ─── Scene interaction overlays ─────────────────────────────────────── */
+
+.camera-bar {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: var(--space-3);
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 24px;
+  background: rgba(8, 12, 20, 0.86);
+  border: 1px solid var(--line-strong);
+  backdrop-filter: blur(4px);
+  box-shadow: var(--shadow-2);
+  z-index: 2;
+}
+.camera-bar__btn {
+  font-family: var(--font-sans);
+  background: transparent;
+  border: none;
+  color: var(--fg-dim);
+  font-size: var(--fs-13);
+  padding: 6px 13px;
+  border-radius: 18px;
+  cursor: pointer;
+}
+.camera-bar__btn:hover { background: var(--bg-3); color: var(--fg); }
+
+.assess-log {
+  position: absolute;
+  left: var(--space-3);
+  top: var(--space-3);
+  width: 200px;
+  max-height: 50%;
+  overflow-y: auto;
+  padding: 10px;
+  border-radius: var(--radius-2);
+  background: rgba(8, 12, 20, 0.86);
+  border: 1px solid var(--line-strong);
+  backdrop-filter: blur(4px);
+  z-index: 2;
+}
+.assess-log__h { margin: 0 0 7px; font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fg-mute); }
+.assess-log__list { list-style: none; margin: 0; padding: 0; }
+.assess-log__row { font-size: var(--fs-13); padding: 5px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; }
+.assess-log__row:last-child { border-bottom: none; }
+.assess-log__t { grid-column: 1 / -1; font-family: var(--font-mono); font-size: 0.62rem; color: var(--fg-mute); }
+.assess-log__reg { color: var(--accent-2); font-weight: 600; }
+.assess-log__val { color: var(--fg-dim); }
+.assess-log__static { color: var(--fg-mute); font-style: italic; }
+
+.object-tooltip {
+  position: fixed;
+  pointer-events: none;
+  background: rgba(11, 18, 32, 0.96);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-1);
+  padding: 4px 9px;
+  font-size: var(--fs-12);
+  color: var(--fg);
+  z-index: 20;
+}
+.object-tooltip__hint { color: var(--fg-mute); font-size: 0.62rem; }
+
+.assess-callout {
+  width: 180px;
+  background: rgba(11, 18, 32, 0.96);
+  border: 1px solid var(--accent-2);
+  border-radius: var(--radius-2);
+  padding: 8px 10px;
+  box-shadow: var(--shadow-2);
+}
+.assess-callout.is-static { border-color: var(--line-strong); }
+.assess-callout__ti { font-family: var(--font-mono); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent-2); }
+.assess-callout__fi { font-size: 0.86rem; font-weight: 650; margin-top: 2px; }
+.assess-callout__de { font-size: 0.72rem; color: var(--fg-dim); margin-top: 2px; line-height: 1.4; }
+.assess-callout-wrap { pointer-events: none; }
+
+.equipment-detach { white-space: nowrap; }
+
+/* Hotspot keyboard/SR affordance. Unlike equipment buttons, these are
+   keyboard-only: pointer-events:none so clustered hotspots never intercept
+   mouse clicks (mouse goes through the 3D raycast hit disc instead).
+   Keyboard focus + Enter still fire the button's onClick. */
+.hotspot-a11y {
+  pointer-events: none;
+}
+.hotspot-a11y__btn {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  background: transparent;
+  border: 0;
+  color: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+.hotspot-a11y__btn:focus-visible {
+  /* Keyboard focus stays visible, but pointer-events stays OFF: keyboard
+     activation (Enter/Space) fires onClick regardless, and leaving it off
+     means a focused hotspot never intercepts a mouse click meant for the
+     equipment beneath it. */
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+  border-radius: var(--radius-1);
+  background: rgba(90, 176, 255, 0.15);
 }

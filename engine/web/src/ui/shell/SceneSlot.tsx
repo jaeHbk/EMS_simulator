@@ -3,6 +3,9 @@
 // this slot doesn't need props.
 
 import { Suspense, lazy } from 'react';
+import { CameraBar } from '../scene/CameraBar';
+import { AssessmentLog } from '../scene/AssessmentLog';
+import { ObjectTooltip } from '../scene/ObjectTooltip';
 
 const Scene = lazy(() =>
   import('../../three/Scene').then((mod) => ({ default: mod.Scene })),
@@ -14,6 +17,9 @@ export function SceneSlot() {
       <Suspense fallback={<SceneLoading />}>
         <Scene />
       </Suspense>
+      <AssessmentLog />
+      <CameraBar />
+      <ObjectTooltip />
       <div className="scene__banner" aria-hidden="true">
         drag to orbit · scroll to zoom
       </div>

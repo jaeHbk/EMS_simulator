@@ -41,6 +41,9 @@ just demo
 | 3D scene | `engine/web/src/three/Scene.tsx` |
 | Patient model | `engine/web/src/three/Patient.tsx` |
 | Equipment system | `engine/web/src/three/equipment/` |
+| 3D interaction (hotspots, camera, tooltips) | `engine/web/src/three/interaction/` |
+| Scene DOM overlays (camera bar, assessment log) | `engine/web/src/ui/scene/` |
+| Onboarding wizard | `engine/web/src/ui/onboarding/` |
 | WS stream + types | `engine/web/src/lib/stream.ts` |
 | Action posting | `engine/web/src/lib/actions.ts` |
 | Instructor controls | `engine/web/src/ui/instructor/` |
@@ -51,8 +54,8 @@ just demo
 
 - `cargo fmt --check && cargo clippy -D warnings && cargo test --workspace` — all clean
 - `tsc -b` (strict + noUncheckedIndexedAccess) — clean
-- `vitest run` — 43+ tests pass
-- `vite build` — initial JS ~15 KB gz; 3D lazy-loaded
+- `vitest run` — 70+ tests pass
+- `vite build` — initial JS ~17 KB gz; 3D lazy-loaded
 - No `unsafe` outside `pulse-sys` (future); no panics in non-test code
 - `prefers-reduced-motion` respected on all animations
 - WCAG AA contrast on dark bg; alarm color always paired with shape

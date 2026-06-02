@@ -5,7 +5,7 @@
 
 import { useEffect } from 'react';
 import { useMonitorStore } from '../ui/monitor/store/monitorStore';
-import { useActionsStore } from './actions';
+import { attachedFromRecords, useActionsStore } from './actions';
 
 const RECONCILE_INTERVAL_MS = 250;
 
@@ -20,17 +20,11 @@ export function useInterventionsWatcher(): void {
   }, []);
 }
 
-/** Hook returning the set of equipment IDs the server currently considers
- *  attached. We treat any *confirmed* action of type `apply_equipment` as
- *  attached; pending shows optimistically. Rejected actions are removed. */
+/** Hook returning the set of equipment IDs currently attached. Delegates to
+ *  the pure `attachedFromRecords` reducer: the most-recent non-rejected
+ *  apply/remove action per equipment wins, so a detach reverts the attached
+ *  state and pending actions still show optimistically. */
 export function useAttachedEquipment(): Set<string> {
   const records = useActionsStore((s) => s.records);
-  const attached = new Set<string>();
-  for (const rec of records.values()) {
-    if (rec.action_type !== 'apply_equipment') continue;
-    if (rec.status === 'rejected') continue;
-    const params = rec.params as { equipment?: string } | null;
-    if (params?.equipment) attached.add(params.equipment);
-  }
-  return attached;
+  return attachedFromRecords(records.values());
 }

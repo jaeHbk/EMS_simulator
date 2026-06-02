@@ -1,4 +1,4 @@
-import { Canvas } from '@react-three/fiber';
+import { Canvas, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { Stretcher } from './Stretcher';
 import { Patient } from './Patient';
@@ -6,8 +6,18 @@ import { Monitor3D } from './Monitor3D';
 import { AmbulanceInterior } from './AmbulanceInterior';
 import { EquipmentTray } from './equipment/EquipmentTray';
 import { InteriorLightRig } from './lights/InteriorLightRig';
+import { ORBIT } from './interaction/orbitBounds';
+import { CameraRig } from './interaction/CameraRig';
+import { PatientHotspots } from './interaction/assessment/PatientHotspots';
+import { useCameraStore } from './interaction/cameraStore';
+import { useObjectTooltip } from './interaction/useObjectTooltip';
 
 export function Scene() {
+  const monitorTip = useObjectTooltip('Bedside monitor', 'Click to focus the view');
+  const focusMonitor = (e: ThreeEvent<MouseEvent>): void => {
+    e.stopPropagation();
+    useCameraStore.getState().request('monitor');
+  };
   // Camera lives just inside the rear doors looking toward the bulkhead.
   // The compartment is a sealed box (x∈[-1.8,1.8], z∈[-1.0,1.0], y∈[0,2.1]),
   // so the eye must sit *inside* those walls — otherwise it stares at the
@@ -36,14 +46,21 @@ export function Scene() {
       <group position={[0, 0, -0.15]}>
         <Stretcher />
         <Patient />
+        <PatientHotspots />
         {/* Monitor on its stand, just past the patient's head, on the
-            curb side so the camera frames screen + patient together. */}
-        <Monitor3D position={[-1.4, 1.4, 0.55]} />
+            curb side so the camera frames screen + patient together.
+            Wrapped in an interactive group: click focuses the camera on
+            it, hover names it. */}
+        <group onClick={focusMonitor} {...monitorTip}>
+          <Monitor3D position={[-1.4, 1.4, 0.55]} />
+        </group>
       </group>
 
       {/* ContactShadows removed: directional light already casts shadows.
           Two shadow systems were the biggest 60 fps risk on integrated
           GPUs per the perf audit; one is enough. */}
+
+      <CameraRig />
 
       {/* Orbit is constrained to an arc that keeps the eye *inside* the
           compartment shell. The cabin is narrow on z (±1.0 m), so a free
@@ -54,12 +71,12 @@ export function Scene() {
       <OrbitControls
         target={[0, 1.0, 0]}
         enablePan={false}
-        minDistance={1.2}
-        maxDistance={1.7}
-        minPolarAngle={Math.PI / 3}
-        maxPolarAngle={Math.PI / 2.05}
-        minAzimuthAngle={Math.PI / 3}
-        maxAzimuthAngle={Math.PI * 0.6}
+        minDistance={ORBIT.minDistance}
+        maxDistance={ORBIT.maxDistance}
+        minPolarAngle={ORBIT.minPolar}
+        maxPolarAngle={ORBIT.maxPolar}
+        minAzimuthAngle={ORBIT.minAzimuth}
+        maxAzimuthAngle={ORBIT.maxAzimuth}
         makeDefault
       />
     </Canvas>

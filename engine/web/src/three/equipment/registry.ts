@@ -33,6 +33,10 @@ export interface EquipmentItem {
   defaultParams: Record<string, unknown>;
   /** Single-letter keyboard accelerator (lowercase). */
   hotkey: string;
+  /** True for items with a real patient attach point (draggable onto the
+   *  patient); bedside items (drug box, O₂ tank, intubation kit) are
+   *  click-only because they have nowhere to land. */
+  draggable: boolean;
 }
 
 // Bench seat in AmbulanceInterior: y_top ≈ 0.58, z ≈ -0.72 → +0.05 depth.
@@ -49,6 +53,7 @@ export const EQUIPMENT: EquipmentItem[] = [
     attachedPosition: [-0.78, 1.32, 0.0],
     defaultParams: { equipment: 'nrb', attach_point: 'face', fio2: 0.85 },
     hotkey: 'n',
+    draggable: true,
   },
   {
     id: 'bvm',
@@ -58,6 +63,7 @@ export const EQUIPMENT: EquipmentItem[] = [
     attachedPosition: [-0.92, 1.36, 0.0],
     defaultParams: { equipment: 'bvm', attach_point: 'airway', fio2: 1.0 },
     hotkey: 'b',
+    draggable: true,
   },
   {
     id: 'iv_line',
@@ -71,6 +77,7 @@ export const EQUIPMENT: EquipmentItem[] = [
       rate_ml_hr: 100,
     },
     hotkey: 'i',
+    draggable: true,
   },
   {
     id: 'defib_pads',
@@ -80,6 +87,7 @@ export const EQUIPMENT: EquipmentItem[] = [
     attachedPosition: [-0.05, 1.32, 0.0],
     defaultParams: { equipment: 'defib_pads', attach_point: 'chest_anterior' },
     hotkey: 'd',
+    draggable: true,
   },
   {
     id: 'drug_box',
@@ -89,6 +97,7 @@ export const EQUIPMENT: EquipmentItem[] = [
     attachedPosition: null,
     defaultParams: { equipment: 'drug_box' },
     hotkey: 'g',
+    draggable: false,
   },
   {
     id: 'oxygen_tank',
@@ -98,6 +107,7 @@ export const EQUIPMENT: EquipmentItem[] = [
     attachedPosition: null,
     defaultParams: { equipment: 'oxygen_tank' },
     hotkey: 'o',
+    draggable: false,
   },
   {
     id: 'intubation_kit',
@@ -107,6 +117,7 @@ export const EQUIPMENT: EquipmentItem[] = [
     attachedPosition: null,
     defaultParams: { equipment: 'intubation_kit' },
     hotkey: 't',
+    draggable: false,
   },
 ];
 
