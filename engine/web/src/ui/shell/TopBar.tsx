@@ -1,6 +1,7 @@
 import { ConnectionStatus } from '../ConnectionStatus';
 import { ScenarioPicker } from '../scenario/ScenarioPicker';
 import { SettingsButton } from '../settings/SettingsButton';
+import { HelpButton } from '../onboarding/HelpButton';
 import { SimClock } from './SimClock';
 import { useRunMode, useRateMultiplier } from '../instructor/useRunControls';
 import type { TopBarSlotProps } from './Slot';
@@ -22,6 +23,7 @@ export function TopBar({ status }: TopBarSlotProps) {
       </div>
       <div className="topbar__right">
         <ConnectionStatus status={status} />
+        <HelpButton />
         <SettingsButton />
       </div>
     </div>
