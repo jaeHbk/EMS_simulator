@@ -6,6 +6,7 @@ import { Monitor3D } from './Monitor3D';
 import { AmbulanceInterior } from './AmbulanceInterior';
 import { EquipmentTray } from './equipment/EquipmentTray';
 import { InteriorLightRig } from './lights/InteriorLightRig';
+import { ORBIT } from './interaction/orbitBounds';
 
 export function Scene() {
   // Camera lives just inside the rear doors looking toward the bulkhead.
@@ -54,12 +55,12 @@ export function Scene() {
       <OrbitControls
         target={[0, 1.0, 0]}
         enablePan={false}
-        minDistance={1.2}
-        maxDistance={1.7}
-        minPolarAngle={Math.PI / 3}
-        maxPolarAngle={Math.PI / 2.05}
-        minAzimuthAngle={Math.PI / 3}
-        maxAzimuthAngle={Math.PI * 0.6}
+        minDistance={ORBIT.minDistance}
+        maxDistance={ORBIT.maxDistance}
+        minPolarAngle={ORBIT.minPolar}
+        maxPolarAngle={ORBIT.maxPolar}
+        minAzimuthAngle={ORBIT.minAzimuth}
+        maxAzimuthAngle={ORBIT.maxAzimuth}
         makeDefault
       />
     </Canvas>
