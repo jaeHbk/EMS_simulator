@@ -84,10 +84,18 @@ export function PickableMesh({
     if (draggable) {
       (e.target as Element | undefined)?.releasePointerCapture?.(e.pointerId);
     }
-    // Click OR drag-release both apply (the drag is an affordance, not a
-    // free-positioning gesture — the item snaps to its attach pose).
-    if (!attached) onPick();
+    const wasDragging = dragging.current;
     dragging.current = false;
+    if (attached) {
+      // Mouse parity with the keyboard detach button: a plain click on an
+      // attached item removes it. A drag on an attached item is ignored so
+      // a stray drag can't accidentally detach.
+      if (!wasDragging) onDetach?.();
+      return;
+    }
+    // Unattached: click OR drag-release both apply (the drag is an
+    // affordance, not free-positioning — the item snaps to its attach pose).
+    onPick();
   };
 
   return (
@@ -100,7 +108,7 @@ export function PickableMesh({
       onPointerUp={handlePointerUp}
     >
       {children}
-      {hovered && !disabled && <HoverHalo />}
+      {hovered && !disabled && !attached && <HoverHalo />}
       {attached && <AttachedDot />}
       <Html center distanceFactor={6} zIndexRange={[0, 0]} wrapperClass="equipment-a11y">
         {attached && onDetach ? (
