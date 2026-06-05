@@ -67,6 +67,10 @@ just demo
 - Equipment registry in `three/equipment/registry.ts` — add new items there
 - Instructor RPCs fall back to client-side overrides when server 404s
 - CSS uses design tokens (`--accent`, `--alarm`, `--abnormal`) — never raw hex in components
+- 3D assets (GLB / HDR / texture) live in `engine/web/public/assets/`. URLs are registered in `src/three/lib/assetPaths.ts` — never inline a string.
+- Load GLBs via `useGltfWithFallback(url)` from `src/three/lib/useGltfWithFallback.ts`. A 404 falls back to a primitive cube; the scene never crashes on a missing asset.
+- HDRI provides both image-based lighting and the visible backdrop via drei `<Environment files={...} background />`. There is one `<directionalLight castShadow>` for shadow definition, plus an optional rim/key directional for fill.
+- Every asset has a `.LICENSE` sidecar; aggregated in `public/assets/NOTICE.md`. Only CC0 or attributed CC-BY accepted.
 
 ## What NOT to do
 
