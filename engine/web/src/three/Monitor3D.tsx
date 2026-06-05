@@ -6,10 +6,12 @@
 // expensive part, not the JS draw.
 
 import { useFrame } from '@react-three/fiber';
-import { memo, useMemo, useRef } from 'react';
+import { memo, Suspense, useMemo, useRef } from 'react';
 import { CanvasTexture, type Mesh } from 'three';
 import { useMonitorStore } from '../ui/monitor/store/monitorStore';
 import type { VitalsFrame } from '../lib/stream';
+import { ASSET_PATHS } from './lib/assetPaths';
+import { useGltfWithFallback } from './lib/useGltfWithFallback';
 
 interface Props {
   position: [number, number, number];
@@ -63,19 +65,14 @@ const Monitor3D = memo(function Monitor3D({ position }: Props) {
 
   return (
     <group position={position} rotation={[0, Math.PI / 3, 0]}>
-      {/* Stand */}
-      <mesh position={[0, -0.55, 0]} castShadow>
-        <cylinderGeometry args={[0.04, 0.04, 1.1, 12]} />
-        <meshStandardMaterial color="#3a4658" metalness={0.6} roughness={0.3} />
-      </mesh>
+      {/* Housing (stand + bezel) — GLB with primitive-cube fallback. */}
+      <Suspense fallback={<HousingFallback />}>
+        <MonitorHousing />
+      </Suspense>
 
-      {/* Bezel */}
-      <mesh castShadow receiveShadow>
-        <boxGeometry args={[1.05, 0.7, 0.06]} />
-        <meshStandardMaterial color="#0e131c" metalness={0.5} roughness={0.4} />
-      </mesh>
-
-      {/* Screen */}
+      {/* Screen — canvas-textured plane unchanged. The GLB only replaces
+          the housing geometry; the live waveform overlay must keep
+          rendering through the React tree. */}
       <mesh ref={screenRef} position={[0, 0, 0.034]}>
         <planeGeometry args={[0.95, 0.6]} />
         <meshStandardMaterial
@@ -92,6 +89,31 @@ const Monitor3D = memo(function Monitor3D({ position }: Props) {
 });
 
 export { Monitor3D };
+
+function MonitorHousing() {
+  const { scene } = useGltfWithFallback(ASSET_PATHS.equipment.monitorBedside);
+  return <primitive object={scene} dispose={null} />;
+}
+
+/**
+ * Pre-Phase-C bezel + stand kept as the Suspense fallback so the
+ * monitor still has visible chrome before the GLB resolves (or, given
+ * useGltfWithFallback, when no real asset is present).
+ */
+function HousingFallback() {
+  return (
+    <group>
+      <mesh position={[0, -0.55, 0]} castShadow>
+        <cylinderGeometry args={[0.04, 0.04, 1.1, 12]} />
+        <meshStandardMaterial color="#3a4658" metalness={0.6} roughness={0.3} />
+      </mesh>
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[1.05, 0.7, 0.06]} />
+        <meshStandardMaterial color="#0e131c" metalness={0.5} roughness={0.4} />
+      </mesh>
+    </group>
+  );
+}
 
 function paintNoSignal(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = '#0a0e14';
