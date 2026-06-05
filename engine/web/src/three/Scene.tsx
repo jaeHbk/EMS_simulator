@@ -1,5 +1,6 @@
 import { Canvas, type ThreeEvent } from '@react-three/fiber';
-import { Environment, ContactShadows, OrbitControls } from '@react-three/drei';
+import { Environment, ContactShadows, OrbitControls, useTexture } from '@react-three/drei';
+import { RepeatWrapping } from 'three';
 import { Suspense, useEffect } from 'react';
 import { Stretcher } from './Stretcher';
 import { Patient } from './Patient';
@@ -59,12 +60,26 @@ export function Scene() {
       {/* Soft global fill so the patient never goes pitch-dark on
           integrated GPUs that don't fully resolve IBL. */}
       <ambientLight intensity={0.25} />
+      {/* Rim directional, no shadow caster, fills detail behind the patient. */}
+      <directionalLight
+        position={[-3.0, 2.5, -1.5]}
+        intensity={0.5}
+        color="#dfe9ff"
+      />
 
-      {/* Phase A: simple gray plane floor. Phase C swaps to PBR-textured. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[20, 20]} />
-        <meshStandardMaterial color="#9aa3ad" roughness={0.85} />
-      </mesh>
+      {/* Phase C: PBR-textured floor with normal + roughness maps.
+          Falls back to the prior flat-gray plane while the textures
+          load (or indefinitely when no real asset is present). */}
+      <Suspense
+        fallback={
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+            <planeGeometry args={[20, 20]} />
+            <meshStandardMaterial color="#9aa3ad" roughness={0.85} />
+          </mesh>
+        }
+      >
+        <TexturedFloor />
+      </Suspense>
       <ContactShadows
         position={[0, 0.01, 0]}
         opacity={0.45}
@@ -99,5 +114,29 @@ export function Scene() {
         makeDefault
       />
     </Canvas>
+  );
+}
+
+function TexturedFloor() {
+  const textures = useTexture([
+    ASSET_PATHS.floor.albedo,
+    ASSET_PATHS.floor.normal,
+    ASSET_PATHS.floor.roughness,
+  ]);
+  for (const t of textures) {
+    t.wrapS = RepeatWrapping;
+    t.wrapT = RepeatWrapping;
+    t.repeat.set(6, 6);
+  }
+  const [albedo, normal, roughness] = textures;
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+      <planeGeometry args={[20, 20]} />
+      <meshStandardMaterial
+        map={albedo}
+        normalMap={normal}
+        roughnessMap={roughness}
+      />
+    </mesh>
   );
 }
