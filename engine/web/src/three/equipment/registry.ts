@@ -39,17 +39,39 @@ export interface EquipmentItem {
   draggable: boolean;
 }
 
-// Bench seat in AmbulanceInterior: y_top ≈ 0.58, z ≈ -0.72 → +0.05 depth.
-// We park items along x with y just above the cushion.
-const BENCH_Y = 0.62;
-const BENCH_Z = -0.55;
+// Tools sit on a single bedside table on the curb side of the stretcher
+// (positive z). The table mesh is rendered in EquipmentTray; these are
+// world-space positions whose height matches `EQUIPMENT_TABLE.topY` so
+// every tool rests on the surface without floating or clipping.
+//
+// All seven tools fit in a single row spanning x ∈ [-0.9, 0.9] at
+// z ≈ 1.0 — far enough from the patient (head x=-0.85, feet x=+0.95)
+// that hover halos and the table itself never collide with the body.
+export const EQUIPMENT_TABLE = {
+  /** Centre of the table footprint in world space. */
+  centerX: 0,
+  centerZ: 1.0,
+  /** Visible footprint. */
+  width: 2.0,
+  depth: 0.36,
+  /** Top surface height; tray Y values are pinned to this. */
+  topY: 0.78,
+  /** Height of the table itself (top down to floor). */
+  height: 0.78,
+} as const;
+
+const TRAY_Y = EQUIPMENT_TABLE.topY + 0.02;
+const TRAY_Z = EQUIPMENT_TABLE.centerZ;
+// Spread the seven items uniformly across the table width.
+// Item slots: -0.9, -0.6, -0.3, 0, 0.3, 0.6, 0.9.
+const SLOT = (i: number): number => -0.9 + i * 0.3;
 
 export const EQUIPMENT: EquipmentItem[] = [
   {
     id: 'nrb',
     label: 'Non-rebreather mask',
     attachPoint: 'face',
-    trayPosition: [-1.2, BENCH_Y, BENCH_Z],
+    trayPosition: [SLOT(0), TRAY_Y, TRAY_Z],
     attachedPosition: [-0.78, 1.32, 0.0],
     defaultParams: { equipment: 'nrb', attach_point: 'face', fio2: 0.85 },
     hotkey: 'n',
@@ -59,7 +81,7 @@ export const EQUIPMENT: EquipmentItem[] = [
     id: 'bvm',
     label: 'Bag-valve mask',
     attachPoint: 'airway',
-    trayPosition: [-0.8, BENCH_Y, BENCH_Z],
+    trayPosition: [SLOT(1), TRAY_Y, TRAY_Z],
     attachedPosition: [-0.92, 1.36, 0.0],
     defaultParams: { equipment: 'bvm', attach_point: 'airway', fio2: 1.0 },
     hotkey: 'b',
@@ -69,7 +91,7 @@ export const EQUIPMENT: EquipmentItem[] = [
     id: 'iv_line',
     label: 'IV line + bag',
     attachPoint: 'left_antecubital',
-    trayPosition: [-0.4, BENCH_Y, BENCH_Z],
+    trayPosition: [SLOT(2), TRAY_Y, TRAY_Z],
     attachedPosition: [0.6, 1.4, 0.45],
     defaultParams: {
       equipment: 'iv_line',
@@ -83,7 +105,7 @@ export const EQUIPMENT: EquipmentItem[] = [
     id: 'defib_pads',
     label: 'Defibrillator pads',
     attachPoint: 'chest_anterior',
-    trayPosition: [0.0, BENCH_Y, BENCH_Z],
+    trayPosition: [SLOT(3), TRAY_Y, TRAY_Z],
     attachedPosition: [-0.05, 1.32, 0.0],
     defaultParams: { equipment: 'defib_pads', attach_point: 'chest_anterior' },
     hotkey: 'd',
@@ -93,7 +115,7 @@ export const EQUIPMENT: EquipmentItem[] = [
     id: 'drug_box',
     label: 'Drug box',
     attachPoint: 'bedside',
-    trayPosition: [0.5, BENCH_Y, BENCH_Z],
+    trayPosition: [SLOT(4), TRAY_Y, TRAY_Z],
     attachedPosition: null,
     defaultParams: { equipment: 'drug_box' },
     hotkey: 'g',
@@ -103,7 +125,7 @@ export const EQUIPMENT: EquipmentItem[] = [
     id: 'oxygen_tank',
     label: 'O₂ tank',
     attachPoint: 'bedside',
-    trayPosition: [1.0, BENCH_Y, BENCH_Z],
+    trayPosition: [SLOT(5), TRAY_Y, TRAY_Z],
     attachedPosition: null,
     defaultParams: { equipment: 'oxygen_tank' },
     hotkey: 'o',
@@ -113,7 +135,7 @@ export const EQUIPMENT: EquipmentItem[] = [
     id: 'intubation_kit',
     label: 'Intubation kit',
     attachPoint: 'bedside',
-    trayPosition: [1.4, BENCH_Y, BENCH_Z],
+    trayPosition: [SLOT(6), TRAY_Y, TRAY_Z],
     attachedPosition: null,
     defaultParams: { equipment: 'intubation_kit' },
     hotkey: 't',

@@ -19,7 +19,7 @@ import { IvPole } from './IvPole';
 import { NrbMask } from './NrbMask';
 import { OxygenTank } from './OxygenTank';
 import { PickableMesh } from './PickableMesh';
-import { EQUIPMENT, type EquipmentItem } from './registry';
+import { EQUIPMENT, EQUIPMENT_TABLE, type EquipmentItem } from './registry';
 
 const ANIM_DURATION_S = 0.4;
 
@@ -39,6 +39,7 @@ export function EquipmentTray() {
 
   return (
     <group>
+      <BedsideTable />
       {EQUIPMENT.map((item) => (
         <EquipmentSlot
           key={item.id}
@@ -47,6 +48,61 @@ export function EquipmentTray() {
           reducedMotion={reducedMotion}
         />
       ))}
+    </group>
+  );
+}
+
+/**
+ * A single bedside table that supports every tool in the registry. Rendered
+ * once at world origin; geometry derived from EQUIPMENT_TABLE. Top is a
+ * thin slab; four cylindrical legs reach the floor. PBR-styled stainless +
+ * dark formica top.
+ */
+function BedsideTable() {
+  const { centerX, centerZ, width, depth, topY, height } = EQUIPMENT_TABLE;
+  const TOP_THICKNESS = 0.04;
+  const LEG_RADIUS = 0.018;
+  const inset = 0.06;
+  const legY = (topY - TOP_THICKNESS / 2) / 2; // midpoint between floor and underside of top
+  const legHeight = topY - TOP_THICKNESS / 2;
+  void height;
+  const corners: Array<[number, number]> = [
+    [centerX - width / 2 + inset, centerZ - depth / 2 + inset],
+    [centerX + width / 2 - inset, centerZ - depth / 2 + inset],
+    [centerX - width / 2 + inset, centerZ + depth / 2 - inset],
+    [centerX + width / 2 - inset, centerZ + depth / 2 - inset],
+  ];
+  return (
+    <group>
+      {/* Tabletop */}
+      <mesh
+        position={[centerX, topY - TOP_THICKNESS / 2, centerZ]}
+        castShadow
+        receiveShadow
+      >
+        <boxGeometry args={[width, TOP_THICKNESS, depth]} />
+        <meshStandardMaterial color="#1d2630" roughness={0.45} metalness={0.15} />
+      </mesh>
+      {/* Subtle stainless trim around the edge of the top */}
+      <mesh position={[centerX, topY - TOP_THICKNESS - 0.005, centerZ]}>
+        <boxGeometry args={[width + 0.005, 0.008, depth + 0.005]} />
+        <meshStandardMaterial color="#c8ced6" metalness={0.85} roughness={0.25} />
+      </mesh>
+      {/* Four legs */}
+      {corners.map(([x, z], i) => (
+        <mesh key={i} position={[x, legY, z]} castShadow>
+          <cylinderGeometry args={[LEG_RADIUS, LEG_RADIUS, legHeight, 12]} />
+          <meshStandardMaterial color="#c8ced6" metalness={0.85} roughness={0.25} />
+        </mesh>
+      ))}
+      {/* Cross-strut for visual stability under the top */}
+      <mesh
+        position={[centerX, topY - TOP_THICKNESS - 0.015, centerZ]}
+        castShadow
+      >
+        <boxGeometry args={[width - 0.18, 0.012, 0.025]} />
+        <meshStandardMaterial color="#c8ced6" metalness={0.85} roughness={0.25} />
+      </mesh>
     </group>
   );
 }
