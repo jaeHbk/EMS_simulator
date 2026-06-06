@@ -12,6 +12,7 @@ import { useMonitorStore } from '../ui/monitor/store/monitorStore';
 import type { VitalsFrame } from '../lib/stream';
 import { ASSET_PATHS } from './lib/assetPaths';
 import { useGltfWithFallback } from './lib/useGltfWithFallback';
+import { useAssetPresence } from './lib/assetManifest';
 
 interface Props {
   position: [number, number, number];
@@ -63,12 +64,21 @@ const Monitor3D = memo(function Monitor3D({ position }: Props) {
     texture.needsUpdate = true;
   });
 
+  const housingPresent = useAssetPresence(ASSET_PATHS.equipment.monitorBedside);
+
   return (
     <group position={position} rotation={[0, Math.PI / 3, 0]}>
-      {/* Housing (stand + bezel) — GLB with primitive-cube fallback. */}
-      <Suspense fallback={<HousingFallback />}>
-        <MonitorHousing />
-      </Suspense>
+      {/* Housing (stand + bezel). Procedural by default; GLB only when
+          the manifest confirms the asset is on disk. The Suspense
+          fallback also renders the procedural housing so a still-loading
+          GLB is never visually empty. */}
+      {housingPresent ? (
+        <Suspense fallback={<HousingFallback />}>
+          <MonitorHousing />
+        </Suspense>
+      ) : (
+        <HousingFallback />
+      )}
 
       {/* Screen — canvas-textured plane unchanged. The GLB only replaces
           the housing geometry; the live waveform overlay must keep
