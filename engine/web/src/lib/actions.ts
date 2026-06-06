@@ -171,11 +171,26 @@ export async function postAction(input: {
       body: JSON.stringify(envelope),
     });
     if (!resp.ok) {
+      // Real-server rejection — keep the record so a band-aware UI can
+      // tell the user. The optimistic attach is rolled back.
       useActionsStore
         .getState()
         .setStatus(action_id, 'rejected', `server ${resp.status}`);
       return action_id;
     }
+
+    // Vite's dev server returns the SPA HTML fallback (200 OK,
+    // text/html, ~1 KB) for any unproxied path. That means no backend
+    // is attached. In that case we auto-confirm the action so the
+    // optimistic attach sticks instead of timing out after 5s.
+    const ct = (resp.headers.get('content-type') ?? '').toLowerCase();
+    if (ct.startsWith('text/html')) {
+      useActionsStore
+        .getState()
+        .setStatus(action_id, 'confirmed');
+      return action_id;
+    }
+
     const accepted = (await resp.json()) as ActionAccepted;
     // Keep status pending — we wait for the interventions echo to flip
     // it to confirmed. accepted_at_tick is informational.
@@ -188,13 +203,16 @@ export async function postAction(input: {
       acceptedAtTick: accepted.accepted_at_tick,
     });
   } catch (e) {
+    // Network failure means no backend is reachable. Auto-confirm so
+    // demo-mode users can still attach equipment locally; mirrors the
+    // demo-mode pattern in lib/stream.ts and useScenarios.ts.
     useActionsStore
       .getState()
       .setStatus(
         action_id,
-        'rejected',
-        e instanceof Error ? e.message : 'network error',
+        'confirmed',
       );
+    void e; // reason intentionally not stored — local-confirm is the success path here.
   }
   return action_id;
 }
