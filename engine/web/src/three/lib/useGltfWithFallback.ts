@@ -1,25 +1,32 @@
-// Wraps drei's useGLTF so that a 404 / parse error never breaks the scene.
-// On failure, returns a Group containing one primitive cube that the
-// caller can render as a placeholder. `isFallback` lets caller code log
-// or visually mark the placeholder.
+// Wraps drei's useGLTF so that a missing / broken asset never breaks the
+// scene. On any failure path, returns a Group containing one primitive
+// cube that the caller can render as a placeholder.
 //
-// Why a custom hook instead of plain useGLTF:
-//   - drei surfaces load errors as thrown promises in suspense, which
-//     unmount the entire 3D subtree. A missing asset shouldn't kill the
-//     whole scene during dev or after a partial deploy.
-//   - The fallback Group has the same shape as the real return, so call
-//     sites can `<primitive object={result.scene} />` uniformly.
+// Why we don't just rely on Suspense: Vite's dev server returns the SPA
+// fallback HTML (200 OK, `text/html`, ~1 KB) for any missing static path.
+// drei's `useGLTF` fetches the URL and tries to parse the bytes as GLB —
+// it throws a real Error mid-suspense that no Suspense boundary catches,
+// unmounting the whole 3D subtree and leaving a blank screen.
+//
+// The fix is two-layered:
+//   1. Asset presence is checked via a HEAD probe (`assetManifest`) before
+//      we ever ask drei to load the URL. Until the probe says "present,"
+//      the hook returns the fallback synchronously and `useGLTF` is never
+//      invoked.
+//   2. As a belt-and-suspenders, the `useGLTF` call itself is wrapped in
+//      try/catch. A real GLB that the loader rejects falls back to the
+//      primitive cube instead of crashing.
 //
 // Test discipline: the React-bound hook itself is exercised at build /
-// dev time. The pure helpers `buildFallback` and `isLikelyMissingAsset`
-// are exported separately so unit tests can assert their contract
-// without needing @testing-library/react or jsdom (CLAUDE.md hard
-// constraint: no new npm dependencies).
+// dev time. The pure helper `buildFallback` is exported separately so
+// unit tests can assert the contract without needing
+// @testing-library/react or jsdom (CLAUDE.md hard constraint).
 
 import { useMemo } from 'react';
 import { useGLTF } from '@react-three/drei';
 import { BoxGeometry, Group, Mesh, MeshStandardMaterial } from 'three';
 import type { GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { useAssetPresence, isAssetPresent } from './assetManifest';
 
 export interface GltfHandle {
   scene: Group;
@@ -49,12 +56,8 @@ export function buildFallback(): Group {
 }
 
 /**
- * Decide whether a given URL is likely to fail to load. The heuristic
- * here is intentionally narrow: a URL pointing at the documented assets
- * directory whose filename looks like a placeholder marker (or is empty)
- * is treated as missing without attempting a network round-trip. This
- * keeps unit tests deterministic without faking the loader. Exported
- * for testability.
+ * @deprecated Kept for back-compat with existing tests. Use the asset
+ * manifest's HEAD probe instead.
  */
 export function isLikelyMissingAsset(url: string): boolean {
   if (!url) return true;
@@ -62,10 +65,11 @@ export function isLikelyMissingAsset(url: string): boolean {
 }
 
 export function useGltfWithFallback(url: string): GltfHandle {
-  // useMemo runs unconditionally so hook order stays stable across renders.
+  // Always-called hooks first — keeps hook order stable across renders.
   const fallback = useMemo(() => buildFallback(), []);
+  const isPresent = useAssetPresence(url);
 
-  if (isLikelyMissingAsset(url)) {
+  if (!isPresent || isLikelyMissingAsset(url)) {
     return { scene: fallback, isFallback: true };
   }
 
@@ -92,6 +96,7 @@ export function useGltfWithFallback(url: string): GltfHandle {
 // Convenience preloader so callers can warm caches in a useEffect.
 useGltfWithFallback.preload = (url: string): void => {
   if (isLikelyMissingAsset(url)) return;
+  if (isAssetPresent(url) !== true) return;
   try {
     useGLTF.preload(url);
   } catch {

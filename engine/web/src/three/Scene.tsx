@@ -12,7 +12,26 @@ import { PatientHotspots } from './interaction/assessment/PatientHotspots';
 import { useCameraStore } from './interaction/cameraStore';
 import { useObjectTooltip } from './interaction/useObjectTooltip';
 import { ASSET_PATHS } from './lib/assetPaths';
-import { useGltfWithFallback } from './lib/useGltfWithFallback';
+import { probeAssets, useAssetPresence } from './lib/assetManifest';
+
+// All asset URLs we may try to load. Probed once on mount; the manifest
+// then short-circuits any consumer whose asset is absent so drei's loaders
+// never see (and never throw on) a missing file.
+const ALL_ASSET_URLS: readonly string[] = [
+  ASSET_PATHS.hdri.clinicalRoom,
+  ASSET_PATHS.patient,
+  ASSET_PATHS.equipment.defibrillator,
+  ASSET_PATHS.equipment.ivPole,
+  ASSET_PATHS.equipment.bvm,
+  ASSET_PATHS.equipment.nrbMask,
+  ASSET_PATHS.equipment.intubationKit,
+  ASSET_PATHS.equipment.drugBox,
+  ASSET_PATHS.equipment.oxygenTank,
+  ASSET_PATHS.equipment.monitorBedside,
+  ASSET_PATHS.floor.albedo,
+  ASSET_PATHS.floor.normal,
+  ASSET_PATHS.floor.roughness,
+];
 
 export function Scene() {
   const monitorTip = useObjectTooltip('Bedside monitor', 'Click to focus the view');
@@ -21,11 +40,21 @@ export function Scene() {
     useCameraStore.getState().request('monitor');
   };
 
-  // Warm the GLB caches in parallel with the HDRI load.
+  // Probe every asset once on mount — the manifest then drives whether
+  // each consumer attempts a real load or renders its primitive fallback.
+  // Missing assets never reach drei's loaders, so a bare `public/assets/`
+  // tree won't blank-screen the app.
   useEffect(() => {
-    useGltfWithFallback.preload(ASSET_PATHS.equipment.defibrillator);
-    useGltfWithFallback.preload(ASSET_PATHS.equipment.ivPole);
+    probeAssets(ALL_ASSET_URLS);
   }, []);
+
+  // Re-render when the HDRI presence flips so the Environment block
+  // either renders or stays out of the tree entirely.
+  const hdriPresent = useAssetPresence(ASSET_PATHS.hdri.clinicalRoom);
+  const albedoPresent = useAssetPresence(ASSET_PATHS.floor.albedo);
+  const normalPresent = useAssetPresence(ASSET_PATHS.floor.normal);
+  const roughnessPresent = useAssetPresence(ASSET_PATHS.floor.roughness);
+  const floorReady = albedoPresent && normalPresent && roughnessPresent;
 
   return (
     <Canvas
@@ -37,11 +66,17 @@ export function Scene() {
       aria-label="Patient on a stretcher with bedside equipment"
     >
       {/* HDRI provides both image-based lighting AND the visible backdrop.
-          Suspense fallback is null so a missing HDRI shows the canvas
-          clear color rather than crashing the scene. */}
-      <Suspense fallback={null}>
-        <Environment files={ASSET_PATHS.hdri.clinicalRoom} background />
-      </Suspense>
+          Only mounted when the manifest confirms the file is present —
+          drei's Environment throws synchronously on a missing file and
+          there is no Suspense / ErrorBoundary recovery path that keeps
+          the rest of the scene mounted. The directional + ambient lights
+          below carry the scene until an HDRI is dropped in. */}
+      {hdriPresent && (
+        <Suspense fallback={null}>
+          <Environment files={ASSET_PATHS.hdri.clinicalRoom} background />
+        </Suspense>
+      )}
+      {!hdriPresent && <color attach="background" args={['#1a232e']} />}
 
       {/* One directional shadow caster — keeps shadow texel work modest. */}
       <directionalLight
@@ -67,19 +102,27 @@ export function Scene() {
         color="#dfe9ff"
       />
 
-      {/* Phase C: PBR-textured floor with normal + roughness maps.
-          Falls back to the prior flat-gray plane while the textures
-          load (or indefinitely when no real asset is present). */}
-      <Suspense
-        fallback={
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-            <planeGeometry args={[20, 20]} />
-            <meshStandardMaterial color="#9aa3ad" roughness={0.85} />
-          </mesh>
-        }
-      >
-        <TexturedFloor />
-      </Suspense>
+      {/* Phase C: PBR-textured floor with normal + roughness maps. Only
+          mounted when the manifest confirms all three texture files are
+          present; otherwise we render the flat-gray plane directly so
+          drei's useTexture is never called with a missing file. */}
+      {floorReady ? (
+        <Suspense
+          fallback={
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+              <planeGeometry args={[20, 20]} />
+              <meshStandardMaterial color="#9aa3ad" roughness={0.85} />
+            </mesh>
+          }
+        >
+          <TexturedFloor />
+        </Suspense>
+      ) : (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+          <planeGeometry args={[20, 20]} />
+          <meshStandardMaterial color="#9aa3ad" roughness={0.85} />
+        </mesh>
+      )}
       <ContactShadows
         position={[0, 0.01, 0]}
         opacity={0.45}
