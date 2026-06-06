@@ -1,8 +1,26 @@
-// IV bag + pole + drip chamber. Compact for the bench-tray pose.
-// When attached, the pole stands upright; the registry positions it on
-// the curb-side of the stretcher.
+// IV pole + bag + drip chamber. GLB when present, procedural fallback otherwise.
+
+import { Suspense } from 'react';
+import { ASSET_PATHS } from '../lib/assetPaths';
+import { useGltfWithFallback } from '../lib/useGltfWithFallback';
+import { useAssetPresence } from '../lib/assetManifest';
 
 export function IvPole() {
+  const present = useAssetPresence(ASSET_PATHS.equipment.ivPole);
+  if (!present) return <ProceduralIvPole />;
+  return (
+    <Suspense fallback={<ProceduralIvPole />}>
+      <GlbIvPole />
+    </Suspense>
+  );
+}
+
+function GlbIvPole() {
+  const { scene } = useGltfWithFallback(ASSET_PATHS.equipment.ivPole);
+  return <primitive object={scene} dispose={null} />;
+}
+
+function ProceduralIvPole() {
   return (
     <group>
       {/* Pole */}
@@ -25,7 +43,7 @@ export function IvPole() {
         <cylinderGeometry args={[0.012, 0.012, 0.04, 10]} />
         <meshStandardMaterial color="#e6f1ff" transparent opacity={0.7} />
       </mesh>
-      {/* Tubing — dangle. */}
+      {/* Tubing */}
       <mesh position={[0.04, 0.45, 0]} castShadow>
         <cylinderGeometry args={[0.003, 0.003, 0.2, 6]} />
         <meshStandardMaterial color="#cfe4ff" transparent opacity={0.6} />

@@ -30,7 +30,7 @@ export function ScenarioPicker({ status }: Props) {
   const activeScenarioId =
     status.kind === 'connected' ? status.scenario : null;
 
-  const { scenarios, loading, error, reload } = useScenarios();
+  const { scenarios, loading, error, reload, isDemo } = useScenarios();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -178,10 +178,15 @@ export function ScenarioPicker({ status }: Props) {
             aria-label="Scenarios"
           >
             {loading && <div className="scenario-popover__hint">Loading…</div>}
-            {error && (
+            {error && !isDemo && (
               <div className="scenario-popover__hint scenario-popover__hint--error">
                 <span>Failed: {error}</span>
                 <button type="button" onClick={reload}>retry</button>
+              </div>
+            )}
+            {isDemo && (
+              <div className="scenario-popover__hint">
+                Demo scenarios — backend offline. <button type="button" onClick={reload}>retry</button>
               </div>
             )}
             {!loading && !error && filtered.length === 0 && (

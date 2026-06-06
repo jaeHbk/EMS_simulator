@@ -1,24 +1,34 @@
-// Single source of truth for orbit limits and the interior shell bounds.
-// Scene.tsx, the camera presets, and the preset-bounds guard test all
-// import these so they cannot drift — and so the prior "camera outside
-// the sealed box → flat grey frame" bug can never reappear.
+// Single source of truth for orbit limits.
+//
+// Pre-Phase-A: the camera was constrained inside a sealed compartment
+// so it never punched through the curb-side wall. Phase A removes the
+// walls — bounds widen so the user can circle the patient and step
+// closer or further back, but stay above the floor and within a sane
+// camera distance.
+//
+// CABIN export retained as deprecated for any consumer that still
+// imports it; values are now an outer "useful look-at envelope" rather
+// than wall coordinates.
 
 export const ORBIT = {
-  minDistance: 1.2,
-  maxDistance: 1.7,
-  minPolar: Math.PI / 3, // 60°
-  maxPolar: Math.PI / 2.05, // ~87.8°
-  minAzimuth: Math.PI / 3, // 60°
-  maxAzimuth: Math.PI * 0.6, // 108°
+  minDistance: 0.6,
+  maxDistance: 3.5,
+  minPolar: 0.4, // ~23° — slightly above horizon, never looks straight down at the floor
+  maxPolar: Math.PI / 2.05, // ~87.8° — never goes below floor
+  minAzimuth: -Math.PI, // full revolution permitted
+  maxAzimuth: Math.PI,
 } as const;
 
-// AmbulanceInterior builds a sealed box: x∈[-1.8,1.8], z∈[-1.0,1.0],
-// y∈[0,2.1]. Camera + look-at must stay strictly inside, with margin.
+/**
+ * @deprecated Phase A removed the sealed compartment. Retained for any
+ * consumer that has not yet been migrated; values describe a generous
+ * camera-position envelope, not physical walls.
+ */
 export const CABIN = {
-  xMin: -1.7,
-  xMax: 1.7,
+  xMin: -3.0,
+  xMax: 3.0,
   yMin: 0.2,
-  yMax: 1.95,
-  zMin: -0.9,
-  zMax: 0.9,
+  yMax: 2.5,
+  zMin: -3.0,
+  zMax: 3.0,
 } as const;

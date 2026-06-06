@@ -1,13 +1,31 @@
 // Non-rebreather mask: green-rim sphere with a small reservoir bag.
 
+import { Suspense } from 'react';
+import { ASSET_PATHS } from '../lib/assetPaths';
+import { useGltfWithFallback } from '../lib/useGltfWithFallback';
+import { useAssetPresence } from '../lib/assetManifest';
+
 export function NrbMask() {
+  const present = useAssetPresence(ASSET_PATHS.equipment.nrbMask);
+  if (!present) return <ProceduralNrbMask />;
+  return (
+    <Suspense fallback={<ProceduralNrbMask />}>
+      <GlbNrbMask />
+    </Suspense>
+  );
+}
+
+function GlbNrbMask() {
+  const { scene } = useGltfWithFallback(ASSET_PATHS.equipment.nrbMask);
+  return <primitive object={scene} dispose={null} />;
+}
+
+function ProceduralNrbMask() {
   return (
     <group>
       {/* Mask body */}
       <mesh castShadow>
-        <sphereGeometry
-          args={[0.085, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.55]}
-        />
+        <sphereGeometry args={[0.085, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
         <meshStandardMaterial
           color="#cfe4ff"
           roughness={0.25}

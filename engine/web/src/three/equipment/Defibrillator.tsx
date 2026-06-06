@@ -1,7 +1,27 @@
-// Defibrillator with pads. Body + handle + emissive ready light + two
-// gel pads on cables. Slice 1B will swap in a real GLB.
+// Defibrillator: GLB when present, procedural fallback otherwise.
+// PickableMesh in EquipmentTray wraps the visual with click/drag/a11y.
+
+import { Suspense } from 'react';
+import { ASSET_PATHS } from '../lib/assetPaths';
+import { useGltfWithFallback } from '../lib/useGltfWithFallback';
+import { useAssetPresence } from '../lib/assetManifest';
 
 export function Defibrillator() {
+  const present = useAssetPresence(ASSET_PATHS.equipment.defibrillator);
+  if (!present) return <ProceduralDefibrillator />;
+  return (
+    <Suspense fallback={<ProceduralDefibrillator />}>
+      <GlbDefibrillator />
+    </Suspense>
+  );
+}
+
+function GlbDefibrillator() {
+  const { scene } = useGltfWithFallback(ASSET_PATHS.equipment.defibrillator);
+  return <primitive object={scene} dispose={null} />;
+}
+
+function ProceduralDefibrillator() {
   return (
     <group>
       {/* Body */}
@@ -33,7 +53,6 @@ export function Defibrillator() {
         <torusGeometry args={[0.05, 0.012, 8, 18, Math.PI]} />
         <meshStandardMaterial color="#0e131c" />
       </mesh>
-      {/* Two pads on cables — represented as small puck shapes. */}
       <Pad offset={[-0.18, 0, 0]} />
       <Pad offset={[0.18, 0, 0]} />
     </group>

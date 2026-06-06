@@ -1,6 +1,26 @@
 // Intubation kit: open case with a laryngoscope + ET tube row.
 
+import { Suspense } from 'react';
+import { ASSET_PATHS } from '../lib/assetPaths';
+import { useGltfWithFallback } from '../lib/useGltfWithFallback';
+import { useAssetPresence } from '../lib/assetManifest';
+
 export function IntubationKit() {
+  const present = useAssetPresence(ASSET_PATHS.equipment.intubationKit);
+  if (!present) return <ProceduralIntubationKit />;
+  return (
+    <Suspense fallback={<ProceduralIntubationKit />}>
+      <GlbIntubationKit />
+    </Suspense>
+  );
+}
+
+function GlbIntubationKit() {
+  const { scene } = useGltfWithFallback(ASSET_PATHS.equipment.intubationKit);
+  return <primitive object={scene} dispose={null} />;
+}
+
+function ProceduralIntubationKit() {
   return (
     <group>
       {/* Case */}

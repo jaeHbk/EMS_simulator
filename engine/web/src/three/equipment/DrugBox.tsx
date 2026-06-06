@@ -1,8 +1,27 @@
 // Drug box: rounded plastic case with a colored lid stripe.
 
 import { RoundedBox } from '@react-three/drei';
+import { Suspense } from 'react';
+import { ASSET_PATHS } from '../lib/assetPaths';
+import { useGltfWithFallback } from '../lib/useGltfWithFallback';
+import { useAssetPresence } from '../lib/assetManifest';
 
 export function DrugBox() {
+  const present = useAssetPresence(ASSET_PATHS.equipment.drugBox);
+  if (!present) return <ProceduralDrugBox />;
+  return (
+    <Suspense fallback={<ProceduralDrugBox />}>
+      <GlbDrugBox />
+    </Suspense>
+  );
+}
+
+function GlbDrugBox() {
+  const { scene } = useGltfWithFallback(ASSET_PATHS.equipment.drugBox);
+  return <primitive object={scene} dispose={null} />;
+}
+
+function ProceduralDrugBox() {
   return (
     <group>
       <RoundedBox

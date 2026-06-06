@@ -1,6 +1,26 @@
 // O₂ tank: capped cylinder + regulator at the top.
 
+import { Suspense } from 'react';
+import { ASSET_PATHS } from '../lib/assetPaths';
+import { useGltfWithFallback } from '../lib/useGltfWithFallback';
+import { useAssetPresence } from '../lib/assetManifest';
+
 export function OxygenTank() {
+  const present = useAssetPresence(ASSET_PATHS.equipment.oxygenTank);
+  if (!present) return <ProceduralOxygenTank />;
+  return (
+    <Suspense fallback={<ProceduralOxygenTank />}>
+      <GlbOxygenTank />
+    </Suspense>
+  );
+}
+
+function GlbOxygenTank() {
+  const { scene } = useGltfWithFallback(ASSET_PATHS.equipment.oxygenTank);
+  return <primitive object={scene} dispose={null} />;
+}
+
+function ProceduralOxygenTank() {
   return (
     <group>
       {/* Tank body */}
