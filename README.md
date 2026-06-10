@@ -1,5 +1,7 @@
 # ED Triage Trainer
 
+[![CI](https://github.com/jaeHbk/EMS_simulator/actions/workflows/ci.yml/badge.svg)](https://github.com/jaeHbk/EMS_simulator/actions/workflows/ci.yml)
+
 An LLM-driven patient simulator for emergency-department triage training.
 
 > ⚠️ **This is an educational training tool, not a medical device.** It must not be
