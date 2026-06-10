@@ -1,0 +1,45 @@
+{
+  "caseId": "synthetic:ankle-sprain-009",
+  "source": "synthetic",
+  "demographics": { "ageBand": "18-24", "sex": "male" },
+  "presentation": {
+    "chiefComplaint": "Twisted my ankle playing basketball, it is swollen",
+    "history": {
+      "hpi": "Inverted the right ankle landing from a jump two hours ago. Swelling and lateral tenderness, able to bear weight with a limp. No numbness. No deformity.",
+      "pmh": ["None"],
+      "medications": ["None"],
+      "allergies": ["None known"],
+      "socialHistory": "Healthy college athlete, non-smoker.",
+      "redFlags": [
+        "Apply Ottawa ankle rules to decide if X-ray is needed"
+      ]
+    },
+    "groundTruthVitals": {
+      "heartRate": 72,
+      "systolicBP": 120,
+      "diastolicBP": 74,
+      "respiratoryRate": 14,
+      "spo2": 100,
+      "temperatureC": 36.6,
+      "painScore": 5,
+      "glucose": 95,
+      "avpu": "A"
+    }
+  },
+  "expert": {
+    "esi": 4,
+    "esiRationale": "Isolated minor extremity injury, stable, weight-bearing, no high-risk features. Expected to need one resource (an ankle X-ray per Ottawa rules). One resource -> ESI 4.",
+    "criticalInterventions": ["IMMOBILIZATION", "ANALGESIA"],
+    "resourcesPredicted": 1
+  },
+  "outcome": {
+    "disposition": "DISCHARGE",
+    "edLengthOfStayMinutes": 90,
+    "diagnosisCategories": ["Ankle sprain"]
+  },
+  "provenance": {
+    "license": "synthetic-generated",
+    "deidentified": true,
+    "sourceRef": "ED Triage Trainer hand-authored seed case"
+  }
+}

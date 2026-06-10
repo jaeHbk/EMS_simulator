@@ -1,0 +1,46 @@
+{
+  "caseId": "synthetic:laceration-008",
+  "source": "synthetic",
+  "demographics": { "ageBand": "35-44", "sex": "male" },
+  "presentation": {
+    "chiefComplaint": "Cut on the forearm from a kitchen knife, still bleeding a little",
+    "history": {
+      "hpi": "Slipped while cutting vegetables an hour ago and sustained a 4 cm linear laceration to the volar left forearm. Bleeding controlled with pressure. Full sensation and movement of the hand and fingers, no foreign body sensation.",
+      "pmh": ["None"],
+      "medications": ["None"],
+      "allergies": ["None known"],
+      "socialHistory": "Social drinker, non-smoker.",
+      "redFlags": [
+        "Confirm distal neurovascular and tendon function intact",
+        "Verify tetanus immunization status"
+      ]
+    },
+    "groundTruthVitals": {
+      "heartRate": 78,
+      "systolicBP": 128,
+      "diastolicBP": 80,
+      "respiratoryRate": 16,
+      "spo2": 100,
+      "temperatureC": 36.7,
+      "painScore": 4,
+      "glucose": 92,
+      "avpu": "A"
+    }
+  },
+  "expert": {
+    "esi": 4,
+    "esiRationale": "Simple laceration with controlled bleeding and intact neurovascular/tendon function. One expected resource (laceration repair / sutures). One resource with stable vitals -> ESI 4.",
+    "criticalInterventions": ["ANALGESIA"],
+    "resourcesPredicted": 1
+  },
+  "outcome": {
+    "disposition": "DISCHARGE",
+    "edLengthOfStayMinutes": 110,
+    "diagnosisCategories": ["Laceration, forearm"]
+  },
+  "provenance": {
+    "license": "synthetic-generated",
+    "deidentified": true,
+    "sourceRef": "ED Triage Trainer hand-authored seed case"
+  }
+}

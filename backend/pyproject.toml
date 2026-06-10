@@ -36,6 +36,10 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+# UP042: we intentionally use `(str, Enum)` rather than `StrEnum`. It mirrors the
+# JSON-schema string enums, keeps `member.value` as the wire value, and avoids the
+# `str(member)` behaviour change StrEnum would introduce across the modules.
+ignore = ["UP042"]
 
 [tool.mypy]
 python_version = "3.11"
@@ -45,6 +49,13 @@ plugins = ["pydantic.mypy"]
 [[tool.mypy.overrides]]
 module = ["anthropic.*", "openai.*"]
 ignore_missing_imports = true
+
+# The cloud provider adapters carry `# type: ignore` comments for the optional SDK
+# call sites. Whether those ignores are "used" depends on whether the SDK is
+# installed, so don't fail the build when they happen to be unused.
+[[tool.mypy.overrides]]
+module = ["app.llm.provider"]
+warn_unused_ignores = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

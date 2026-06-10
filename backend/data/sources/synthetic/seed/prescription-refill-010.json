@@ -1,0 +1,45 @@
+{
+  "caseId": "synthetic:prescription-refill-010",
+  "source": "synthetic",
+  "demographics": { "ageBand": "45-54", "sex": "female" },
+  "presentation": {
+    "chiefComplaint": "Ran out of my blood pressure medication and need a refill",
+    "history": {
+      "hpi": "Ran out of her routine antihypertensive three days ago while traveling and would like a bridging prescription. Feels completely well, no headache, chest pain, shortness of breath, or visual changes.",
+      "pmh": ["Hypertension (well controlled)"],
+      "medications": ["Amlodipine"],
+      "allergies": ["None known"],
+      "socialHistory": "Non-smoker, walks daily.",
+      "redFlags": [
+        "Confirm no hypertensive emergency symptoms (chest pain, neuro deficit, visual change)"
+      ]
+    },
+    "groundTruthVitals": {
+      "heartRate": 74,
+      "systolicBP": 138,
+      "diastolicBP": 84,
+      "respiratoryRate": 14,
+      "spo2": 99,
+      "temperatureC": 36.7,
+      "painScore": 0,
+      "glucose": 100,
+      "avpu": "A"
+    }
+  },
+  "expert": {
+    "esi": 5,
+    "esiRationale": "Well-appearing patient with normal vitals seeking a medication refill, no acute complaint. No resources anticipated beyond a prescription (history and exam only). No resources -> ESI 5.",
+    "criticalInterventions": ["NONE"],
+    "resourcesPredicted": 0
+  },
+  "outcome": {
+    "disposition": "DISCHARGE",
+    "edLengthOfStayMinutes": 45,
+    "diagnosisCategories": ["Medication refill encounter"]
+  },
+  "provenance": {
+    "license": "synthetic-generated",
+    "deidentified": true,
+    "sourceRef": "ED Triage Trainer hand-authored seed case"
+  }
+}

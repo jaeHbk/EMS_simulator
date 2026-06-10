@@ -1,0 +1,48 @@
+{
+  "caseId": "synthetic:anaphylaxis-001",
+  "source": "synthetic",
+  "demographics": { "ageBand": "25-34", "sex": "female" },
+  "presentation": {
+    "chiefComplaint": "Trouble breathing and full-body hives after eating at a restaurant",
+    "history": {
+      "hpi": "Sudden onset of diffuse urticaria, lip and tongue swelling, throat tightness, and wheezing 10 minutes after eating shellfish. Now feeling light-headed and has vomited once.",
+      "pmh": ["Known shellfish allergy", "Mild asthma"],
+      "medications": ["Albuterol inhaler PRN"],
+      "allergies": ["Shellfish", "Peanuts"],
+      "socialHistory": "Non-smoker, no alcohol today.",
+      "redFlags": [
+        "Airway compromise (lip/tongue swelling, stridor)",
+        "Hypotension / pre-syncope",
+        "Rapidly progressing wheeze with known allergen exposure",
+        "Multi-system involvement (skin + respiratory + GI)"
+      ]
+    },
+    "groundTruthVitals": {
+      "heartRate": 128,
+      "systolicBP": 84,
+      "diastolicBP": 52,
+      "respiratoryRate": 30,
+      "spo2": 88,
+      "temperatureC": 37.0,
+      "painScore": 2,
+      "glucose": 110,
+      "avpu": "A"
+    }
+  },
+  "expert": {
+    "esi": 1,
+    "esiRationale": "Anaphylaxis with airway involvement and hypotension is an immediate life threat requiring intramuscular epinephrine and resuscitation now. ESI 1: requires immediate life-saving intervention.",
+    "criticalInterventions": ["AIRWAY_MANAGEMENT", "OXYGEN", "IV_ACCESS", "FLUID_BOLUS", "CARDIAC_MONITOR"],
+    "resourcesPredicted": 5
+  },
+  "outcome": {
+    "disposition": "ICU",
+    "edLengthOfStayMinutes": 420,
+    "diagnosisCategories": ["Anaphylaxis", "Acute respiratory compromise"]
+  },
+  "provenance": {
+    "license": "synthetic-generated",
+    "deidentified": true,
+    "sourceRef": "ED Triage Trainer hand-authored seed case"
+  }
+}

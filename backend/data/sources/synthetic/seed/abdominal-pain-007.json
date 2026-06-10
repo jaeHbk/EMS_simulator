@@ -1,0 +1,47 @@
+{
+  "caseId": "synthetic:abdominal-pain-007",
+  "source": "synthetic",
+  "demographics": { "ageBand": "25-34", "sex": "female" },
+  "presentation": {
+    "chiefComplaint": "Right lower abdominal pain for one day with nausea",
+    "history": {
+      "hpi": "Pain began around the umbilicus yesterday and migrated to the right lower quadrant, now sharp and worse with movement. Nausea, anorexia, and one episode of vomiting. Low-grade fever. Last menstrual period three weeks ago.",
+      "pmh": ["None"],
+      "medications": ["Oral contraceptive pill"],
+      "allergies": ["None known"],
+      "socialHistory": "Non-smoker, occasional alcohol.",
+      "redFlags": [
+        "Migratory RLQ pain with peritoneal signs (concern for appendicitis)",
+        "Needs pregnancy test before imaging",
+        "Multiple resources expected (labs, imaging, IV analgesia)"
+      ]
+    },
+    "groundTruthVitals": {
+      "heartRate": 98,
+      "systolicBP": 122,
+      "diastolicBP": 76,
+      "respiratoryRate": 18,
+      "spo2": 99,
+      "temperatureC": 37.9,
+      "painScore": 7,
+      "glucose": 104,
+      "avpu": "A"
+    }
+  },
+  "expert": {
+    "esi": 3,
+    "esiRationale": "Stable vital signs with no immediate or high-risk threat, but the presentation requires multiple resources (labs, urine/serum hCG, CT or ultrasound, IV fluids, analgesia, surgical consult). Two-or-more resources with stable vitals -> ESI 3.",
+    "criticalInterventions": ["IV_ACCESS", "ANALGESIA"],
+    "resourcesPredicted": 4
+  },
+  "outcome": {
+    "disposition": "OR",
+    "edLengthOfStayMinutes": 300,
+    "diagnosisCategories": ["Acute appendicitis"]
+  },
+  "provenance": {
+    "license": "synthetic-generated",
+    "deidentified": true,
+    "sourceRef": "ED Triage Trainer hand-authored seed case"
+  }
+}

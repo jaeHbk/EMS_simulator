@@ -1,0 +1,47 @@
+{
+  "caseId": "synthetic:stemi-chest-pain-003",
+  "source": "synthetic",
+  "demographics": { "ageBand": "55-64", "sex": "male" },
+  "presentation": {
+    "chiefComplaint": "Crushing chest pain radiating to the left arm for 40 minutes",
+    "history": {
+      "hpi": "Sudden substernal pressure that began while mowing the lawn, radiating to the left arm and jaw, associated with diaphoresis, nausea, and shortness of breath. Pain rated 9/10, not relieved by rest.",
+      "pmh": ["Hypertension", "Hyperlipidemia", "Smoker"],
+      "medications": ["Lisinopril", "Atorvastatin"],
+      "allergies": ["None known"],
+      "socialHistory": "One pack per day smoker for 30 years.",
+      "redFlags": [
+        "Crushing chest pain radiating to arm/jaw with diaphoresis",
+        "High-risk cardiac presentation requiring immediate ECG",
+        "Time-critical (door-to-ECG within 10 minutes)"
+      ]
+    },
+    "groundTruthVitals": {
+      "heartRate": 102,
+      "systolicBP": 158,
+      "diastolicBP": 94,
+      "respiratoryRate": 22,
+      "spo2": 94,
+      "temperatureC": 36.8,
+      "painScore": 9,
+      "glucose": 138,
+      "avpu": "A"
+    }
+  },
+  "expert": {
+    "esi": 2,
+    "esiRationale": "High-risk chest pain concerning for acute coronary syndrome. Hemodynamically stable and not requiring an immediate life-saving intervention at the door (so not ESI 1), but a time-critical, high-risk presentation that cannot wait. ESI 2.",
+    "criticalInterventions": ["ECG", "CARDIAC_MONITOR", "IV_ACCESS", "OXYGEN", "ANALGESIA"],
+    "resourcesPredicted": 5
+  },
+  "outcome": {
+    "disposition": "OR",
+    "edLengthOfStayMinutes": 95,
+    "diagnosisCategories": ["ST-elevation myocardial infarction", "Acute coronary syndrome"]
+  },
+  "provenance": {
+    "license": "synthetic-generated",
+    "deidentified": true,
+    "sourceRef": "ED Triage Trainer hand-authored seed case"
+  }
+}

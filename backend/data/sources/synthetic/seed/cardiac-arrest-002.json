@@ -1,0 +1,48 @@
+{
+  "caseId": "synthetic:cardiac-arrest-002",
+  "source": "synthetic",
+  "demographics": { "ageBand": "65-74", "sex": "male" },
+  "presentation": {
+    "chiefComplaint": "Brought in by EMS unresponsive, CPR in progress",
+    "history": {
+      "hpi": "Witnessed collapse at home. Bystander CPR started, EMS found him in ventricular fibrillation, one shock delivered, now with return of spontaneous circulation but unresponsive and being bagged.",
+      "pmh": ["Coronary artery disease", "Prior MI", "Hypertension", "Type 2 diabetes"],
+      "medications": ["Aspirin", "Metoprolol", "Atorvastatin", "Metformin"],
+      "allergies": ["None known"],
+      "socialHistory": "Former smoker.",
+      "redFlags": [
+        "Cardiac arrest with ROSC",
+        "Unresponsive / not protecting airway",
+        "Shockable rhythm (VF)",
+        "Requires immediate post-arrest resuscitation"
+      ]
+    },
+    "groundTruthVitals": {
+      "heartRate": 48,
+      "systolicBP": 74,
+      "diastolicBP": 40,
+      "respiratoryRate": 8,
+      "spo2": 84,
+      "temperatureC": 35.6,
+      "painScore": null,
+      "glucose": 210,
+      "avpu": "U"
+    }
+  },
+  "expert": {
+    "esi": 1,
+    "esiRationale": "Post-cardiac-arrest with ROSC, unresponsive and not protecting the airway. Requires immediate life-saving intervention (airway, ventilation, hemodynamic support). ESI 1.",
+    "criticalInterventions": ["AIRWAY_MANAGEMENT", "OXYGEN", "CARDIAC_MONITOR", "IV_ACCESS", "ECG", "FLUID_BOLUS"],
+    "resourcesPredicted": 6
+  },
+  "outcome": {
+    "disposition": "ICU",
+    "edLengthOfStayMinutes": 210,
+    "diagnosisCategories": ["Cardiac arrest", "Post-resuscitation care", "STEMI"]
+  },
+  "provenance": {
+    "license": "synthetic-generated",
+    "deidentified": true,
+    "sourceRef": "ED Triage Trainer hand-authored seed case"
+  }
+}

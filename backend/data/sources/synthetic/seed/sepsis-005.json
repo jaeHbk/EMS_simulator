@@ -1,0 +1,48 @@
+{
+  "caseId": "synthetic:sepsis-005",
+  "source": "synthetic",
+  "demographics": { "ageBand": "75-84", "sex": "male" },
+  "presentation": {
+    "chiefComplaint": "Fever, confusion, and weakness for two days",
+    "history": {
+      "hpi": "Two days of fevers, rigors, dysuria and worsening confusion. Family notes decreased oral intake and reduced urine output. Today he is lethargic and not himself.",
+      "pmh": ["Benign prostatic hyperplasia", "Type 2 diabetes", "Chronic kidney disease"],
+      "medications": ["Tamsulosin", "Metformin"],
+      "allergies": ["Penicillin (rash)"],
+      "socialHistory": "Lives alone, independent at baseline.",
+      "redFlags": [
+        "Sepsis criteria: fever + tachycardia + tachypnea + hypotension",
+        "Altered mental status (acute confusion from baseline)",
+        "Suspected source (urinary) with end-organ dysfunction",
+        "Requires early antibiotics and fluids (sepsis bundle)"
+      ]
+    },
+    "groundTruthVitals": {
+      "heartRate": 118,
+      "systolicBP": 88,
+      "diastolicBP": 54,
+      "respiratoryRate": 26,
+      "spo2": 93,
+      "temperatureC": 39.2,
+      "painScore": 3,
+      "glucose": 196,
+      "avpu": "V"
+    }
+  },
+  "expert": {
+    "esi": 2,
+    "esiRationale": "Septic shock physiology (hypotension, tachycardia, tachypnea, altered mental status) in an elderly patient. High-risk, time-critical for the sepsis bundle but not yet requiring an immediate door-side life-saving procedure such as intubation, so ESI 2. Under-triage here delays antibiotics and fluids.",
+    "criticalInterventions": ["IV_ACCESS", "FLUID_BOLUS", "ANTIBIOTICS", "OXYGEN", "CARDIAC_MONITOR", "GLUCOSE_CHECK"],
+    "resourcesPredicted": 6
+  },
+  "outcome": {
+    "disposition": "ICU",
+    "edLengthOfStayMinutes": 330,
+    "diagnosisCategories": ["Sepsis", "Urinary tract infection", "Acute kidney injury"]
+  },
+  "provenance": {
+    "license": "synthetic-generated",
+    "deidentified": true,
+    "sourceRef": "ED Triage Trainer hand-authored seed case"
+  }
+}

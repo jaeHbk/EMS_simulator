@@ -39,11 +39,11 @@
           "description": "Facts the LLM patient persona may reveal when asked. The trainee must elicit these; they are NOT shown up front.",
           "additionalProperties": false,
           "properties": {
-            "hpi": { "type": "string", "description": "History of present illness narrative the persona draws from." },
+            "hpi": { "type": ["string", "null"], "description": "History of present illness narrative the persona draws from." },
             "pmh": { "type": "array", "items": { "type": "string" }, "description": "Past medical history." },
             "medications": { "type": "array", "items": { "type": "string" } },
             "allergies": { "type": "array", "items": { "type": "string" } },
-            "socialHistory": { "type": "string" },
+            "socialHistory": { "type": ["string", "null"] },
             "redFlags": {
               "type": "array",
               "items": { "type": "string" },
@@ -66,7 +66,7 @@
           "maximum": 5,
           "description": "Reference ESI acuity level (1 = most acute). The primary scoring target."
         },
-        "esiRationale": { "type": "string", "description": "Why this ESI level; shown in feedback." },
+        "esiRationale": { "type": ["string", "null"], "description": "Why this ESI level; shown in feedback." },
         "criticalInterventions": {
           "type": "array",
           "items": { "type": "string", "enum": ["IV_ACCESS", "OXYGEN", "ECG", "CARDIAC_MONITOR", "FLUID_BOLUS", "GLUCOSE_CHECK", "NEURO_CHECK", "IMMOBILIZATION", "ANALGESIA", "ANTIBIOTICS", "AIRWAY_MANAGEMENT", "NONE"] },
@@ -97,7 +97,7 @@
       "properties": {
         "license": { "type": "string", "description": "e.g. 'PhysioNet Open Data Commons' or 'synthetic-generated'." },
         "deidentified": { "type": "boolean", "description": "Must be true for any case the app loads. The loader rejects false." },
-        "sourceRef": { "type": "string", "description": "Citation/URL or generator config hash." }
+        "sourceRef": { "type": ["string", "null"], "description": "Citation/URL or generator config hash." }
       }
     }
   },

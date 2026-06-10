@@ -1,0 +1,47 @@
+{
+  "caseId": "synthetic:asthma-exacerbation-006",
+  "source": "synthetic",
+  "demographics": { "ageBand": "18-24", "sex": "female" },
+  "presentation": {
+    "chiefComplaint": "Wheezing and shortness of breath getting worse over the day",
+    "history": {
+      "hpi": "Known asthmatic with a viral URI, progressive wheeze and dyspnea over the day despite using her rescue inhaler every couple of hours. Speaking in short phrases but able to complete sentences. No cyanosis.",
+      "pmh": ["Asthma (prior ED visits, no prior intubation)"],
+      "medications": ["Albuterol inhaler", "Inhaled corticosteroid"],
+      "allergies": ["None known"],
+      "socialHistory": "College student, non-smoker.",
+      "redFlags": [
+        "Moderate asthma exacerbation with increased work of breathing",
+        "Requires nebulized bronchodilators and steroids",
+        "Needs continuous monitoring for deterioration"
+      ]
+    },
+    "groundTruthVitals": {
+      "heartRate": 112,
+      "systolicBP": 126,
+      "diastolicBP": 78,
+      "respiratoryRate": 26,
+      "spo2": 92,
+      "temperatureC": 37.4,
+      "painScore": 1,
+      "glucose": 98,
+      "avpu": "A"
+    }
+  },
+  "expert": {
+    "esi": 3,
+    "esiRationale": "Moderate asthma exacerbation: hemodynamically stable, oxygenating adequately, talking in phrases, no immediate life threat. Expected to need multiple resources (nebs, steroids, labs, possibly chest imaging) -> ESI 3. Reassess closely for escalation.",
+    "criticalInterventions": ["OXYGEN", "CARDIAC_MONITOR"],
+    "resourcesPredicted": 3
+  },
+  "outcome": {
+    "disposition": "DISCHARGE",
+    "edLengthOfStayMinutes": 240,
+    "diagnosisCategories": ["Asthma exacerbation"]
+  },
+  "provenance": {
+    "license": "synthetic-generated",
+    "deidentified": true,
+    "sourceRef": "ED Triage Trainer hand-authored seed case"
+  }
+}
