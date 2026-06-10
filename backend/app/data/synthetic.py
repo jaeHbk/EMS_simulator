@@ -51,6 +51,8 @@ class _Template:
     sexes: tuple[str, ...]
     esi: int
     esi_rationale: str
+    requires_life_saving: bool
+    is_high_risk: bool
     hpi: str
     pmh: tuple[str, ...]
     medications: tuple[str, ...]
@@ -83,6 +85,8 @@ _TEMPLATES: tuple[_Template, ...] = (
             "Anaphylaxis with airway/hemodynamic compromise needs immediate "
             "intramuscular epinephrine and resuscitation. ESI 1."
         ),
+        requires_life_saving=True,  # step A: immediate life-saving intervention
+        is_high_risk=True,
         hpi=(
             "Rapid onset of diffuse urticaria, lip/tongue swelling, wheeze and "
             "light-headedness minutes after allergen exposure."
@@ -119,6 +123,8 @@ _TEMPLATES: tuple[_Template, ...] = (
             "High-risk chest pain concerning for acute coronary syndrome. "
             "Hemodynamically stable but time-critical; ESI 2."
         ),
+        requires_life_saving=False,
+        is_high_risk=True,  # step B: high-risk presentation that should not wait
         hpi=(
             "Substernal pressure radiating to the left arm and jaw with "
             "diaphoresis and nausea, not relieved by rest."
@@ -154,6 +160,8 @@ _TEMPLATES: tuple[_Template, ...] = (
             "Septic shock physiology with altered mental status; time-critical "
             "for the sepsis bundle but not yet needing a door-side procedure. ESI 2."
         ),
+        requires_life_saving=False,
+        is_high_risk=True,  # step B: high-risk septic shock physiology
         hpi=(
             "Several days of fevers and rigors with a suspected source, now with "
             "reduced intake, low urine output, and worsening confusion."
@@ -191,6 +199,8 @@ _TEMPLATES: tuple[_Template, ...] = (
             "resources (labs, imaging, IV fluids, analgesia). Two-or-more "
             "resources -> ESI 3."
         ),
+        requires_life_saving=False,
+        is_high_risk=False,
         hpi=(
             "Migratory abdominal pain now localized and sharp, with nausea, "
             "anorexia and low-grade fever."
@@ -204,7 +214,10 @@ _TEMPLATES: tuple[_Template, ...] = (
         ),
         critical_interventions=("IV_ACCESS", "ANALGESIA"),
         resources_predicted=4,
-        hr=_VitalRange(88, 102),
+        # HR capped at 100 (the adult danger-zone threshold is > 100): a stable
+        # ESI-3 abdominal pain must not roll a danger-zone vital that the cited
+        # ESI step D would upgrade to ESI 2. RR already <= 20, SpO2 >= 92.
+        hr=_VitalRange(88, 100),
         sbp=_VitalRange(112, 130),
         dbp=_VitalRange(70, 82),
         rr=_VitalRange(16, 20),
@@ -226,6 +239,8 @@ _TEMPLATES: tuple[_Template, ...] = (
             "Simple laceration, controlled bleeding, intact neurovascular and "
             "tendon function. One expected resource (repair) -> ESI 4."
         ),
+        requires_life_saving=False,
+        is_high_risk=False,
         hpi=(
             "Linear forearm laceration from a household accident, bleeding "
             "controlled, full distal sensation and movement."
@@ -261,6 +276,8 @@ _TEMPLATES: tuple[_Template, ...] = (
             "Well-appearing patient with a minor self-limited complaint and "
             "normal vitals. No resources anticipated beyond exam -> ESI 5."
         ),
+        requires_life_saving=False,
+        is_high_risk=False,
         hpi=(
             "Several days of sore throat, rhinorrhea and mild cough. Tolerating "
             "fluids, no difficulty breathing or swallowing."
@@ -336,6 +353,8 @@ def _build_case(template: _Template, index: int, rng: random.Random) -> TriageCa
         "expert": {
             "esi": template.esi,
             "esiRationale": template.esi_rationale,
+            "requiresLifeSaving": template.requires_life_saving,
+            "isHighRisk": template.is_high_risk,
             "criticalInterventions": list(template.critical_interventions),
             "resourcesPredicted": template.resources_predicted,
         },

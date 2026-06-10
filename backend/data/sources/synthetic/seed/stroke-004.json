@@ -31,6 +31,8 @@
   "expert": {
     "esi": 2,
     "esiRationale": "Acute stroke within the treatment window is a time-critical, high-risk presentation requiring immediate stroke-pathway activation. Patient is protecting the airway and hemodynamically adequate, so ESI 2 rather than 1. Under-triaging this to ESI 3+ would delay thrombolysis/thrombectomy.",
+    "requiresLifeSaving": false,
+    "isHighRisk": true,
     "criticalInterventions": ["NEURO_CHECK", "GLUCOSE_CHECK", "IV_ACCESS", "CARDIAC_MONITOR"],
     "resourcesPredicted": 5
   },

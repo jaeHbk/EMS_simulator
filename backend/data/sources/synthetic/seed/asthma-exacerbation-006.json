@@ -17,10 +17,10 @@
       ]
     },
     "groundTruthVitals": {
-      "heartRate": 112,
+      "heartRate": 98,
       "systolicBP": 126,
       "diastolicBP": 78,
-      "respiratoryRate": 26,
+      "respiratoryRate": 20,
       "spo2": 92,
       "temperatureC": 37.4,
       "painScore": 1,
@@ -30,7 +30,9 @@
   },
   "expert": {
     "esi": 3,
-    "esiRationale": "Moderate asthma exacerbation: hemodynamically stable, oxygenating adequately, talking in phrases, no immediate life threat. Expected to need multiple resources (nebs, steroids, labs, possibly chest imaging) -> ESI 3. Reassess closely for escalation.",
+    "esiRationale": "Moderate asthma exacerbation: hemodynamically stable, oxygenating adequately, talking in phrases, no immediate life threat. Vital signs are mildly abnormal but below the ESI danger-zone thresholds (HR <= 100, RR <= 20, SpO2 >= 92). Expected to need multiple resources (nebs, steroids, labs, possibly chest imaging) -> ESI 3. Reassess closely for escalation.",
+    "requiresLifeSaving": false,
+    "isHighRisk": false,
     "criticalInterventions": ["OXYGEN", "CARDIAC_MONITOR"],
     "resourcesPredicted": 3
   },

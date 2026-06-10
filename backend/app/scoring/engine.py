@@ -41,6 +41,7 @@ from app.models import (
 from app.models.encounter import Role
 from app.models.score import DimensionKey, EsiResult
 from app.models.triage_case import Disposition
+from app.scoring.esi_algorithm import EsiDecision, esi_decision
 
 # ---------------------------------------------------------------------------
 # Default dimension weights. Tests pin these exact values, so do not change one
@@ -186,7 +187,29 @@ def _build_esi_result(enc: Encounter, case: TriageCase) -> EsiResult:
     )
 
 
-def _esi_dimension(esi: EsiResult, decided: bool) -> ScoreDimension:
+def _expert_esi_decision(case: TriageCase) -> EsiDecision:
+    """Run the cited ESI v4 decision tree on the case's expert labels.
+
+    This is a *teaching* layer only: it names the decision point the expert ESI
+    flows through (steps A->D) so feedback can point the trainee at exactly which
+    decision they got wrong. It never changes a score — ``case.expert.esi`` stays
+    the authoritative scoring target.
+    """
+    gt = case.presentation.groundTruthVitals
+    return esi_decision(
+        life_saving=case.expert.requiresLifeSaving,
+        high_risk=case.expert.isHighRisk,
+        resources_predicted=case.expert.resourcesPredicted,
+        vitals={
+            "heartRate": gt.heartRate,
+            "respiratoryRate": gt.respiratoryRate,
+            "spo2": gt.spo2,
+        },
+        age_band=case.demographics.ageBand,
+    )
+
+
+def _esi_dimension(esi: EsiResult, decided: bool, case: TriageCase) -> ScoreDimension:
     if not decided:
         # No ESI was assigned. Award zero on the top-weighted dimension: a triage
         # with no acuity decision must never be credited (in particular it must
@@ -215,6 +238,12 @@ def _esi_dimension(esi: EsiResult, decided: bool) -> ScoreDimension:
             f"Over-triage: assigned ESI {esi.assigned} is more acute than the "
             f"expert ESI {esi.expert} ({abs(esi.levelsOff)} level(s) too high in acuity)."
         )
+    # Teaching layer: name the cited ESI v4 decision point the expert level flows
+    # through (steps A->D), so feedback points the trainee at the decision they
+    # missed. This enriches free-text only; it does not change the score above.
+    decision = _expert_esi_decision(case)
+    path_str = " -> ".join(decision.path)
+    detail = f"Expert ESI {esi.expert} via cited ESI v4 algorithm: {path_str}. {detail}"
     return ScoreDimension(
         key=DimensionKey.ESI_ACCURACY,
         label=DIMENSION_LABELS[DimensionKey.ESI_ACCURACY],
@@ -514,7 +543,7 @@ def score(enc: Encounter, case: TriageCase) -> ScoreReport:
     """
     esi = _build_esi_result(enc, case)
 
-    esi_dim = _esi_dimension(esi, decided=enc.esiAssigned is not None)
+    esi_dim = _esi_dimension(esi, decided=enc.esiAssigned is not None, case=case)
     history_dim, missed_red_flags = _history_dimension(enc, case)
     vitals_dim = _vitals_dimension(enc, case)
     interventions_dim = _interventions_dimension(enc, case)

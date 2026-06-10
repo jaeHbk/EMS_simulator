@@ -32,6 +32,8 @@
   "expert": {
     "esi": 1,
     "esiRationale": "Anaphylaxis with airway involvement and hypotension is an immediate life threat requiring intramuscular epinephrine and resuscitation now. ESI 1: requires immediate life-saving intervention.",
+    "requiresLifeSaving": true,
+    "isHighRisk": true,
     "criticalInterventions": ["AIRWAY_MANAGEMENT", "OXYGEN", "IV_ACCESS", "FLUID_BOLUS", "CARDIAC_MONITOR"],
     "resourcesPredicted": 5
   },

@@ -93,6 +93,12 @@ class ExpertLabels(_Strict):
 
     esi: int = Field(ge=1, le=5, description="Reference ESI acuity (1 = most acute).")
     esiRationale: str | None = None
+    requiresLifeSaving: bool = Field(
+        default=False, description="ESI step A: needs an immediate life-saving intervention."
+    )
+    isHighRisk: bool = Field(
+        default=False, description="ESI step B: high-risk situation / should not wait."
+    )
     criticalInterventions: list[CriticalIntervention] = Field(default_factory=list)
     resourcesPredicted: int | None = Field(default=None, ge=0)
 

@@ -30,6 +30,8 @@
   "expert": {
     "esi": 4,
     "esiRationale": "Simple laceration with controlled bleeding and intact neurovascular/tendon function. One expected resource (laceration repair / sutures). One resource with stable vitals -> ESI 4.",
+    "requiresLifeSaving": false,
+    "isHighRisk": false,
     "criticalInterventions": ["ANALGESIA"],
     "resourcesPredicted": 1
   },

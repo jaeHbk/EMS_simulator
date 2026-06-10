@@ -31,6 +31,8 @@
   "expert": {
     "esi": 2,
     "esiRationale": "High-risk chest pain concerning for acute coronary syndrome. Hemodynamically stable and not requiring an immediate life-saving intervention at the door (so not ESI 1), but a time-critical, high-risk presentation that cannot wait. ESI 2.",
+    "requiresLifeSaving": false,
+    "isHighRisk": true,
     "criticalInterventions": ["ECG", "CARDIAC_MONITOR", "IV_ACCESS", "OXYGEN", "ANALGESIA"],
     "resourcesPredicted": 5
   },

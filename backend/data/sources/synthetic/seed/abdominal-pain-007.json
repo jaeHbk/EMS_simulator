@@ -31,6 +31,8 @@
   "expert": {
     "esi": 3,
     "esiRationale": "Stable vital signs with no immediate or high-risk threat, but the presentation requires multiple resources (labs, urine/serum hCG, CT or ultrasound, IV fluids, analgesia, surgical consult). Two-or-more resources with stable vitals -> ESI 3.",
+    "requiresLifeSaving": false,
+    "isHighRisk": false,
     "criticalInterventions": ["IV_ACCESS", "ANALGESIA"],
     "resourcesPredicted": 4
   },

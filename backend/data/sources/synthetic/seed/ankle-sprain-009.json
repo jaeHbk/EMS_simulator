@@ -29,6 +29,8 @@
   "expert": {
     "esi": 4,
     "esiRationale": "Isolated minor extremity injury, stable, weight-bearing, no high-risk features. Expected to need one resource (an ankle X-ray per Ottawa rules). One resource -> ESI 4.",
+    "requiresLifeSaving": false,
+    "isHighRisk": false,
     "criticalInterventions": ["IMMOBILIZATION", "ANALGESIA"],
     "resourcesPredicted": 1
   },

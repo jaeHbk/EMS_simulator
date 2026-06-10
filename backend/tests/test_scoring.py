@@ -179,6 +179,42 @@ def test_correct_esi() -> None:
     assert _dim(report, DimensionKey.ESI_ACCURACY).score == 1.0
 
 
+# ---------------------------------------------------------------------------
+# Cited ESI v4 decision path is woven into the ESI dimension detail (teaching
+# layer). It enriches free text only — the sub-score math is unchanged.
+# ---------------------------------------------------------------------------
+
+
+def test_esi_detail_names_cited_decision_path_for_high_risk_expert() -> None:
+    # Expert ESI 2 via step B (high-risk); trainee under-triages to ESI 4.
+    case = make_case(expert_esi=2)
+    case.expert.isHighRisk = True
+    enc = make_encounter(esi_assigned=4)
+    report = score(enc, case)
+    dim = _dim(report, DimensionKey.ESI_ACCURACY)
+    # The cited algorithm path is named, including the B (high-risk) decision.
+    assert "cited ESI v4 algorithm" in dim.detail
+    assert "A:" in dim.detail and "B:" in dim.detail
+    # The sub-score is still the unchanged under-triage-by-2 value (0.0).
+    assert dim.score == 0.0
+
+
+def test_esi_detail_names_step_d_for_danger_zone_expert() -> None:
+    # Expert ESI 3 by resources, upgraded to 2 by danger-zone vitals (step D).
+    case = make_case(
+        expert_esi=2,
+        ground_truth_vitals=Vitals(heartRate=130.0, respiratoryRate=24.0, spo2=90.0),
+    )
+    case.expert.resourcesPredicted = 4
+    enc = make_encounter(esi_assigned=2)
+    report = score(enc, case)
+    dim = _dim(report, DimensionKey.ESI_ACCURACY)
+    assert "D:" in dim.detail
+    assert "danger-zone" in dim.detail
+    # Correct triage: sub-score unchanged at 1.0.
+    assert dim.score == 1.0
+
+
 def test_missing_esi_treated_as_least_acute_under_triage() -> None:
     # No ESI submitted -> treated as assigned 5 (least acute). Against an acute
     # expert this is maximal under-triage, the dangerous default.

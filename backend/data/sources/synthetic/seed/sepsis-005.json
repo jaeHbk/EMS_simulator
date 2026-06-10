@@ -32,6 +32,8 @@
   "expert": {
     "esi": 2,
     "esiRationale": "Septic shock physiology (hypotension, tachycardia, tachypnea, altered mental status) in an elderly patient. High-risk, time-critical for the sepsis bundle but not yet requiring an immediate door-side life-saving procedure such as intubation, so ESI 2. Under-triage here delays antibiotics and fluids.",
+    "requiresLifeSaving": false,
+    "isHighRisk": true,
     "criticalInterventions": ["IV_ACCESS", "FLUID_BOLUS", "ANTIBIOTICS", "OXYGEN", "CARDIAC_MONITOR", "GLUCOSE_CHECK"],
     "resourcesPredicted": 6
   },

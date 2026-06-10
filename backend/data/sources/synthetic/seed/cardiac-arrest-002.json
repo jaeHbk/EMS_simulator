@@ -32,6 +32,8 @@
   "expert": {
     "esi": 1,
     "esiRationale": "Post-cardiac-arrest with ROSC, unresponsive and not protecting the airway. Requires immediate life-saving intervention (airway, ventilation, hemodynamic support). ESI 1.",
+    "requiresLifeSaving": true,
+    "isHighRisk": true,
     "criticalInterventions": ["AIRWAY_MANAGEMENT", "OXYGEN", "CARDIAC_MONITOR", "IV_ACCESS", "ECG", "FLUID_BOLUS"],
     "resourcesPredicted": 6
   },

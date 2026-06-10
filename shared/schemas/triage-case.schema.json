@@ -67,6 +67,8 @@
           "description": "Reference ESI acuity level (1 = most acute). The primary scoring target."
         },
         "esiRationale": { "type": ["string", "null"], "description": "Why this ESI level; shown in feedback." },
+        "requiresLifeSaving": { "type": "boolean", "description": "ESI step A: needs an immediate life-saving intervention." },
+        "isHighRisk": { "type": "boolean", "description": "ESI step B: high-risk situation / should not wait." },
         "criticalInterventions": {
           "type": "array",
           "items": { "type": "string", "enum": ["IV_ACCESS", "OXYGEN", "ECG", "CARDIAC_MONITOR", "FLUID_BOLUS", "GLUCOSE_CHECK", "NEURO_CHECK", "IMMOBILIZATION", "ANALGESIA", "ANTIBIOTICS", "AIRWAY_MANAGEMENT", "NONE"] },

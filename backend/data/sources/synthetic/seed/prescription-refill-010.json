@@ -29,6 +29,8 @@
   "expert": {
     "esi": 5,
     "esiRationale": "Well-appearing patient with normal vitals seeking a medication refill, no acute complaint. No resources anticipated beyond a prescription (history and exam only). No resources -> ESI 5.",
+    "requiresLifeSaving": false,
+    "isHighRisk": false,
     "criticalInterventions": ["NONE"],
     "resourcesPredicted": 0
   },
