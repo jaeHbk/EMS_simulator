@@ -1,0 +1,122 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ed-triage-trainer/schemas/triage-case.schema.json",
+  "title": "TriageCase",
+  "description": "A single de-identified ED presentation a trainee will triage. Every data source (mimic_demo, synthetic, mimic_full, mietic) normalizes to this shape. The app never reads a source-specific format.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["caseId", "source", "demographics", "presentation", "expert", "provenance"],
+  "properties": {
+    "caseId": {
+      "type": "string",
+      "description": "Stable, source-prefixed id, e.g. 'mimic_demo:30210105' or 'synthetic:chest-pain-001'."
+    },
+    "source": {
+      "type": "string",
+      "enum": ["mimic_demo", "synthetic", "mimic_full", "mietic"],
+      "description": "Which loader produced this case. Used for filtering and attribution, never for branching clinical logic."
+    },
+    "demographics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ageBand", "sex"],
+      "properties": {
+        "ageBand": {
+          "type": "string",
+          "description": "De-identified age band, e.g. '25-34'. Never an exact age (HIPAA Safe Harbor)."
+        },
+        "sex": { "type": "string", "enum": ["male", "female", "other", "unknown"] }
+      }
+    },
+    "presentation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["chiefComplaint", "history", "groundTruthVitals"],
+      "properties": {
+        "chiefComplaint": { "type": "string", "description": "Free-text chief complaint, shown to trainee at case load." },
+        "history": {
+          "type": "object",
+          "description": "Facts the LLM patient persona may reveal when asked. The trainee must elicit these; they are NOT shown up front.",
+          "additionalProperties": false,
+          "properties": {
+            "hpi": { "type": "string", "description": "History of present illness narrative the persona draws from." },
+            "pmh": { "type": "array", "items": { "type": "string" }, "description": "Past medical history." },
+            "medications": { "type": "array", "items": { "type": "string" } },
+            "allergies": { "type": "array", "items": { "type": "string" } },
+            "socialHistory": { "type": "string" },
+            "redFlags": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Critical findings a competent history would surface; scored under history completeness."
+            }
+          }
+        },
+        "groundTruthVitals": { "$ref": "#/definitions/vitals" }
+      }
+    },
+    "expert": {
+      "type": "object",
+      "description": "Expert/reference labels the trainee is scored against. Hidden until FEEDBACK stage.",
+      "additionalProperties": false,
+      "required": ["esi"],
+      "properties": {
+        "esi": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Reference ESI acuity level (1 = most acute). The primary scoring target."
+        },
+        "esiRationale": { "type": "string", "description": "Why this ESI level; shown in feedback." },
+        "criticalInterventions": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["IV_ACCESS", "OXYGEN", "ECG", "CARDIAC_MONITOR", "FLUID_BOLUS", "GLUCOSE_CHECK", "NEURO_CHECK", "IMMOBILIZATION", "ANALGESIA", "ANTIBIOTICS", "AIRWAY_MANAGEMENT", "NONE"] },
+          "description": "Interventions an expert would initiate at triage. Scored under intervention recognition."
+        },
+        "resourcesPredicted": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "ESI resource count (labs, imaging, etc.) used to disambiguate ESI 3 vs 4 vs 5."
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "description": "Real downstream outcome where the source provides it (MIMIC). Optional; absent for purely synthetic cases.",
+      "additionalProperties": false,
+      "properties": {
+        "disposition": { "type": "string", "enum": ["DISCHARGE", "ADMIT", "ICU", "OR", "EXPIRED", "TRANSFER", "LWBS", "UNKNOWN"] },
+        "edLengthOfStayMinutes": { "type": "integer", "minimum": 0 },
+        "diagnosisCategories": { "type": "array", "items": { "type": "string" }, "description": "De-identified diagnosis groupings, never raw ICD free-text with identifiers." }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "description": "Where this case came from and under what terms. Required for publication and attribution.",
+      "additionalProperties": false,
+      "required": ["license", "deidentified"],
+      "properties": {
+        "license": { "type": "string", "description": "e.g. 'PhysioNet Open Data Commons' or 'synthetic-generated'." },
+        "deidentified": { "type": "boolean", "description": "Must be true for any case the app loads. The loader rejects false." },
+        "sourceRef": { "type": "string", "description": "Citation/URL or generator config hash." }
+      }
+    }
+  },
+  "definitions": {
+    "vitals": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Triage vital signs. Null means 'not yet measured by trainee' on the live encounter; on a case it is the ground-truth value revealed when measured.",
+      "properties": {
+        "heartRate": { "type": ["number", "null"], "description": "bpm" },
+        "systolicBP": { "type": ["number", "null"], "description": "mmHg" },
+        "diastolicBP": { "type": ["number", "null"], "description": "mmHg" },
+        "respiratoryRate": { "type": ["number", "null"], "description": "breaths/min" },
+        "spo2": { "type": ["number", "null"], "description": "SpO2 %" },
+        "temperatureC": { "type": ["number", "null"], "description": "degrees Celsius" },
+        "painScore": { "type": ["integer", "null"], "minimum": 0, "maximum": 10 },
+        "glucose": { "type": ["number", "null"], "description": "mg/dL, optional point-of-care" },
+        "avpu": { "type": ["string", "null"], "enum": ["A", "V", "P", "U", null], "description": "Alert/Voice/Pain/Unresponsive" }
+      }
+    }
+  }
+}

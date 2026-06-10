@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ed-triage-trainer/schemas/encounter.schema.json",
+  "title": "Encounter",
+  "description": "The live state of one trainee triaging one case. Owned by the backend sim state machine; the frontend renders it and posts actions against it. This is the wire format for GET /encounters/{id}.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["encounterId", "caseId", "stage", "history", "measuredVitals", "interventionsOrdered"],
+  "properties": {
+    "encounterId": { "type": "string" },
+    "caseId": { "type": "string", "description": "The TriageCase being triaged. Expert labels stay server-side until stage == FEEDBACK." },
+    "stage": {
+      "type": "string",
+      "enum": ["CASE_LOAD", "HISTORY", "VITALS", "ESI_ASSIGNMENT", "INTERVENTIONS", "FEEDBACK"],
+      "description": "Current workflow stage. Transitions are enforced server-side; the client cannot skip ahead."
+    },
+    "chiefComplaint": { "type": "string", "description": "Echoed from the case so the client need not hold the case." },
+    "history": {
+      "type": "array",
+      "description": "The history-taking transcript between trainee and LLM patient.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "text"],
+        "properties": {
+          "role": { "type": "string", "enum": ["trainee", "patient"] },
+          "text": { "type": "string" }
+        }
+      }
+    },
+    "measuredVitals": {
+      "description": "Vitals the trainee has chosen to measure. Unmeasured fields are null. Mirrors TriageCase vitals shape.",
+      "$ref": "triage-case.schema.json#/definitions/vitals"
+    },
+    "esiAssigned": { "type": ["integer", "null"], "minimum": 1, "maximum": 5, "description": "Trainee's ESI decision; null until ESI_ASSIGNMENT submitted." },
+    "interventionsOrdered": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Critical interventions the trainee initiated. Compared to expert list in scoring."
+    },
+    "scoreReport": {
+      "description": "Populated only when stage == FEEDBACK.",
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "score-report.schema.json" }
+      ]
+    },
+    "startedAt": { "type": "string", "format": "date-time" },
+    "completedAt": { "type": ["string", "null"], "format": "date-time" }
+  }
+}

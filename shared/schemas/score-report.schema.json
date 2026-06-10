@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ed-triage-trainer/schemas/score-report.schema.json",
+  "title": "ScoreReport",
+  "description": "Automated performance scoring for one completed encounter, produced by the scoring engine and shown at the FEEDBACK stage. Deterministic, rule-based scoring is authoritative; the LLM only authors narrative feedback text, never the numbers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["encounterId", "esi", "dimensions", "overallPercent", "narrative"],
+  "properties": {
+    "encounterId": { "type": "string" },
+    "esi": {
+      "type": "object",
+      "description": "The headline result. triageDirection is the project's core metric: under-triage (assigning a less acute level than expert) is the dangerous error the tool exists to reduce.",
+      "additionalProperties": false,
+      "required": ["assigned", "expert", "correct", "triageDirection"],
+      "properties": {
+        "assigned": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "expert": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "correct": { "type": "boolean", "description": "assigned == expert" },
+        "triageDirection": {
+          "type": "string",
+          "enum": ["CORRECT", "OVER_TRIAGE", "UNDER_TRIAGE"],
+          "description": "UNDER_TRIAGE = assigned a higher (less acute) number than expert => patient under-prioritized. The headline safety signal."
+        },
+        "levelsOff": { "type": "integer", "description": "assigned - expert. Negative = over-triage, positive = under-triage." }
+      }
+    },
+    "dimensions": {
+      "type": "array",
+      "description": "Per-competency breakdown. Each dimension scored 0..1 with its own weight; overallPercent is the weighted sum.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "label", "score", "weight", "detail"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "enum": ["ESI_ACCURACY", "HISTORY_COMPLETENESS", "VITALS_ACQUISITION", "INTERVENTION_RECOGNITION", "OUTCOME_ALIGNMENT"],
+            "description": "ESI_ACCURACY is weighted highest and penalizes UNDER_TRIAGE more than OVER_TRIAGE. OUTCOME_ALIGNMENT is skipped (weight 0) when the case has no real outcome."
+          },
+          "label": { "type": "string" },
+          "score": { "type": "number", "minimum": 0, "maximum": 1 },
+          "weight": { "type": "number", "minimum": 0, "maximum": 1 },
+          "detail": { "type": "string", "description": "Human-readable explanation of how this dimension scored, e.g. which red flags were missed." }
+        }
+      }
+    },
+    "overallPercent": { "type": "number", "minimum": 0, "maximum": 100 },
+    "narrative": {
+      "type": "string",
+      "description": "LLM-authored teaching feedback grounded in the dimensions above. Must reference the numeric findings; never invents scores."
+    },
+    "missedRedFlags": { "type": "array", "items": { "type": "string" }, "description": "Red flags from the case the trainee never elicited or acted on." }
+  }
+}
