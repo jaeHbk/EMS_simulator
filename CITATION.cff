@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+title: "ED Triage Trainer: an LLM-driven patient simulator for emergency-department triage training"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - name: "ED Triage Trainer contributors"
+repository-code: "https://github.com/jaeHbk/EMS_simulator"
+license: MIT
+keywords:
+  - medical-education
+  - clinical-informatics
+  - triage
+  - emergency-severity-index
+  - large-language-models
+  - patient-simulation
+abstract: >-
+  A web-based simulator for emergency-department triage training in which a
+  trainee takes a history from an LLM-driven patient, measures vitals, assigns
+  an Emergency Severity Index (ESI) level, and orders interventions, then
+  receives deterministic, rule-based feedback scored against expert labels and
+  real patient outcomes. Grounded in de-identified MIMIC-IV-ED data and a
+  synthetic case generator. Educational tool — not a medical device.

@@ -71,7 +71,16 @@ open-access demo cases + synthetic generator and a scripted local patient stub. 
 All sources normalize to one `TriageCase`. Credentialed data is never committed.
 See `backend/data/sources/*/README.md` for setup and citation requirements.
 
+## Contributing
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup and the quality bars, and
+[`AGENTS.md`](AGENTS.md) for the engineering rules. Security reports:
+[`SECURITY.md`](SECURITY.md).
+
 ## License & attribution
 
-Code: open-source (see `LICENSE`). Clinical data retains its PhysioNet license and
-must be cited per PhysioNet terms; see the per-source README files.
+Code is licensed under the **MIT License** (see [`LICENSE`](LICENSE)). Clinical data
+retains its original PhysioNet license and must be cited per PhysioNet terms — see
+[`docs/ATTRIBUTION.md`](docs/ATTRIBUTION.md) and the per-source README files. To cite
+this software, use [`CITATION.cff`](CITATION.cff) (GitHub renders a "Cite this
+repository" button).
