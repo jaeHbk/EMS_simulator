@@ -1,12 +1,17 @@
 # --- Credentialed / restricted data: NEVER commit ---
 # Full MIMIC-IV-ED and MIETIC require a PhysioNet DUA + CITI training.
-# Only the open-access mimic_demo subset and synthetic cases are tracked.
+# Only synthetic cases are tracked; data is fetched locally, never committed.
 backend/data/sources/mimic_full/**
 !backend/data/sources/mimic_full/README.md
 !backend/data/sources/mimic_full/.gitkeep
 backend/data/sources/mietic/**
 !backend/data/sources/mietic/README.md
 !backend/data/sources/mietic/.gitkeep
+
+# Open-access MIMIC-IV-ED Demo: fetched locally via backend/scripts/fetch_mimic_demo.py,
+# not committed (keep the README + the generated PROVENANCE.json trackable).
+backend/data/sources/mimic_demo/*.csv
+backend/data/sources/mimic_demo/*.csv.gz
 
 # --- Secrets ---
 .env

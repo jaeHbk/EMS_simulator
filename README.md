@@ -80,13 +80,17 @@ container. Configure via environment (or a `.env` file compose reads):
 
 | Source | Access | Status |
 |--------|--------|--------|
-| MIMIC-IV-ED **Demo** | Open-access (~100 ED stays) | Bundled, ships now |
-| Synthetic generator | None | Bundled, ships now |
+| Synthetic generator + seed cases | None | **Ships now** (the only corpus committed) |
+| MIMIC-IV-ED **Demo** | Open-access (~100 ED stays) | Fetch locally: `python backend/scripts/fetch_mimic_demo.py` (not committed) |
 | MIMIC-IV-ED **Full** | PhysioNet DUA + CITI training | Loader path; data git-ignored |
 | MIETIC | PhysioNet credentialing | Loader path; data git-ignored |
 
-All sources normalize to one `TriageCase`. Credentialed data is never committed.
-See `backend/data/sources/*/README.md` for setup and citation requirements.
+Out of the box the app runs on the **synthetic** corpus. The open-access MIMIC-IV-ED
+Demo is an opt-in local fetch (no credentialing); the full dataset and MIETIC are
+documented loader paths for credentialed users. All sources normalize to one
+`TriageCase`; no data is committed. See [`docs/DATA_CARD.md`](docs/DATA_CARD.md) for
+provenance, the ESI-label-validity caveat, and which scoring dimensions each source
+supports, and `backend/data/sources/*/README.md` for per-source setup.
 
 ## Contributing
 

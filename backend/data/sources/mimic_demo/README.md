@@ -1,7 +1,19 @@
 # MIMIC-IV-ED Demo (open-access)
 
-This directory holds the open-access **MIMIC-IV-ED Demo** subset from PhysioNet.
-It is open data (PhysioNet Open Data Commons) and *may* be committed to git.
+This directory holds the open-access **MIMIC-IV-ED Demo** subset from PhysioNet
+(Open Data Commons ODbL v1.0). The CSVs are **fetched locally and not committed**
+(`.gitignore` excludes `*.csv` / `*.csv.gz` here); only this README and the
+generated `PROVENANCE.json` are tracked.
+
+## Fetch it
+
+```bash
+python backend/scripts/fetch_mimic_demo.py
+```
+
+This downloads the required CSVs into this directory, decompresses them to the
+filenames below, and writes `PROVENANCE.json` (dataset version + SHA256 per file)
+for reproducibility. Then enable the source: `ENABLED_SOURCES=mimic_demo,synthetic`.
 
 ## Offline-first
 
