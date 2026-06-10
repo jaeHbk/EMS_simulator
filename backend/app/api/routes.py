@@ -73,7 +73,10 @@ class AdvanceBody(_StrictBody):
 
 
 class HistoryBody(_StrictBody):
-    text: str = Field(description="The trainee's message to the patient persona.")
+    text: str = Field(
+        max_length=2000,
+        description="The trainee's message to the patient persona.",
+    )
 
 
 class VitalsBody(_StrictBody):
@@ -185,6 +188,12 @@ async def post_history(encounter_id: str, body: HistoryBody) -> Encounter:
         raise HTTPException(
             status_code=404, detail=f"Case {encounter.caseId!r} for this encounter not found."
         ) from exc
+
+    # Cap conversation length per encounter (cost / abuse guard) before any work.
+    if len(encounter.history) >= settings.llm_max_history_turns:
+        raise HTTPException(
+            status_code=400, detail="History turn limit reached for this encounter."
+        )
 
     # Record the trainee's turn first (sim enforces this is legal only in HISTORY).
     try:

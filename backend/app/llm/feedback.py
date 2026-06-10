@@ -18,7 +18,7 @@ system prompt.
 from __future__ import annotations
 
 from app.llm.prompts import build_feedback_system
-from app.llm.provider import LLMProvider, LocalProvider
+from app.llm.provider import LLMProvider, LLMUnavailableError, LocalProvider
 from app.models import ScoreReport, TriageCase, TriageDirection
 
 
@@ -127,8 +127,10 @@ async def feedback_narrative(
 
     Offline (``LocalProvider``): a deterministic template-filled narrative built
     from the report fields. Cloud providers: a strict system prompt + findings
-    block via ``provider.complete``. In every path the narrative is grounded only
-    in the report's numbers and never invents or changes one.
+    block via ``provider.complete``. If the cloud call is unavailable (timeout /
+    repeated failure) we degrade gracefully to the scripted narrative rather than
+    500-ing. In every path the narrative is grounded only in the report's numbers
+    and never invents or changes one.
     """
     if isinstance(provider, LocalProvider):
         return _scripted_narrative(report)
@@ -139,4 +141,7 @@ async def feedback_narrative(
         "Write the teaching feedback for this trainee, grounded strictly in the "
         "findings above. Do not introduce any number or ESI level that is not listed."
     )
-    return await provider.complete(system, [{"role": "user", "content": user_msg}])
+    try:
+        return await provider.complete(system, [{"role": "user", "content": user_msg}])
+    except LLMUnavailableError:
+        return _scripted_narrative(report)

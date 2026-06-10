@@ -14,10 +14,45 @@ clear, actionable error.
 
 from __future__ import annotations
 
+import asyncio
 import re
+from collections.abc import Awaitable, Callable
 from typing import Protocol, runtime_checkable
 
 from app.config import Settings
+
+
+class LLMUnavailableError(RuntimeError):
+    """Raised when a cloud LLM call times out or fails after all retries.
+
+    Higher layers (``patient_reply`` / ``feedback_narrative``) catch this and fall
+    back to the deterministic ``LocalProvider`` so an encounter stays recoverable
+    instead of surfacing as an unhandled 500.
+    """
+
+
+async def _with_resilience(
+    coro_factory: Callable[[], Awaitable[str]],
+    *,
+    timeout: float,
+    attempts: int = 2,
+) -> str:
+    """Run ``coro_factory()`` with a per-attempt timeout and a small retry budget.
+
+    Each attempt is wrapped in :func:`asyncio.wait_for`; on timeout or any other
+    exception we retry up to ``attempts`` times, then raise
+    :class:`LLMUnavailableError` carrying the last error.
+    """
+    last: Exception | None = None
+    for _ in range(attempts):
+        try:
+            return await asyncio.wait_for(coro_factory(), timeout=timeout)
+        except TimeoutError as exc:
+            # On Python 3.11+ asyncio.TimeoutError is an alias of the builtin.
+            last = exc
+        except Exception as exc:  # noqa: BLE001 - normalize every failure mode
+            last = exc
+    raise LLMUnavailableError(str(last) if last else "LLM call failed")
 
 
 @runtime_checkable
@@ -76,7 +111,7 @@ class LocalProvider:
 class AnthropicProvider:
     """Claude-backed provider. SDK imported lazily so the module loads without it."""
 
-    def __init__(self, api_key: str, model: str) -> None:
+    def __init__(self, api_key: str, model: str, timeout: float = 20.0) -> None:
         if not api_key:
             raise RuntimeError(
                 "AnthropicProvider selected but ANTHROPIC_API_KEY is empty. Set the "
@@ -91,9 +126,10 @@ class AnthropicProvider:
                 "use LLM_PROVIDER=local."
             ) from exc
         self._model = model
+        self._timeout = timeout
         self._client = anthropic.AsyncAnthropic(api_key=api_key)
 
-    async def complete(self, system: str, messages: list[dict[str, str]]) -> str:
+    async def _call(self, system: str, messages: list[dict[str, str]]) -> str:
         response = await self._client.messages.create(
             model=self._model,
             system=system,
@@ -103,11 +139,16 @@ class AnthropicProvider:
         parts = [block.text for block in response.content if getattr(block, "type", None) == "text"]
         return "".join(parts)
 
+    async def complete(self, system: str, messages: list[dict[str, str]]) -> str:
+        return await _with_resilience(
+            lambda: self._call(system, messages), timeout=self._timeout
+        )
+
 
 class OpenAIProvider:
     """OpenAI-backed provider. SDK imported lazily so the module loads without it."""
 
-    def __init__(self, api_key: str, model: str) -> None:
+    def __init__(self, api_key: str, model: str, timeout: float = 20.0) -> None:
         if not api_key:
             raise RuntimeError(
                 "OpenAIProvider selected but OPENAI_API_KEY is empty. Set the key, "
@@ -122,9 +163,10 @@ class OpenAIProvider:
                 "LLM_PROVIDER=local."
             ) from exc
         self._model = model
+        self._timeout = timeout
         self._client = openai.AsyncOpenAI(api_key=api_key)
 
-    async def complete(self, system: str, messages: list[dict[str, str]]) -> str:
+    async def _call(self, system: str, messages: list[dict[str, str]]) -> str:
         chat_messages: list[dict[str, str]] = [{"role": "system", "content": system}]
         chat_messages.extend(messages)
         response = await self._client.chat.completions.create(
@@ -133,6 +175,11 @@ class OpenAIProvider:
             max_tokens=1024,
         )
         return response.choices[0].message.content or ""
+
+    async def complete(self, system: str, messages: list[dict[str, str]]) -> str:
+        return await _with_resilience(
+            lambda: self._call(system, messages), timeout=self._timeout
+        )
 
 
 def get_provider(settings: Settings) -> LLMProvider:
@@ -143,8 +190,16 @@ def get_provider(settings: Settings) -> LLMProvider:
     """
     provider_name = (settings.llm_provider or "local").strip().lower()
     if provider_name == "anthropic":
-        return AnthropicProvider(settings.anthropic_api_key, settings.anthropic_model)
+        return AnthropicProvider(
+            settings.anthropic_api_key,
+            settings.anthropic_model,
+            timeout=settings.llm_timeout_seconds,
+        )
     if provider_name == "openai":
-        return OpenAIProvider(settings.openai_api_key, settings.openai_model)
+        return OpenAIProvider(
+            settings.openai_api_key,
+            settings.openai_model,
+            timeout=settings.llm_timeout_seconds,
+        )
     # "local" and any unknown value fall back to the safe offline provider.
     return LocalProvider()

@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     anthropic_model: str = "claude-sonnet-4-6"
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
+    # Resilience / abuse limits for cloud LLM calls.
+    llm_timeout_seconds: float = 20.0
+    llm_max_history_turns: int = 40
 
     # Data
     enabled_sources: str = "mimic_demo,synthetic"

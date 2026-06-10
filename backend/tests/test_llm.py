@@ -17,6 +17,8 @@ from app.llm import (
     get_provider,
     patient_reply,
 )
+from app.llm.prompts import PATIENT_DEFLECTION
+from app.llm.provider import LLMUnavailableError
 from app.models import (
     Demographics,
     ExpertLabels,
@@ -190,6 +192,37 @@ async def test_patient_reply_never_leaks_esi_or_diagnosis() -> None:
         assert str(case.expert.esi) not in reply
         history.append(HistoryTurn(role=Role.trainee, text=probe))
         history.append(HistoryTurn(role=Role.patient, text=reply))
+
+
+async def test_patient_reply_cloud_leak_guard_blocks_esi_and_diagnosis() -> None:
+    # A cloud model that leaks an ESI level and a diagnosis must be scrubbed by the
+    # post-generation anti-leak guard before the reply reaches the trainee.
+    class LeakyProvider:
+        async def complete(self, system: str, messages: list[dict[str, str]]) -> str:
+            return "This looks like a STEMI, probably ESI 2"
+
+    case = _make_case()
+    reply = await patient_reply(case, [], "What do you think is going on?", LeakyProvider())
+    assert "ESI 2" not in reply
+    assert "esi 2" not in reply.lower()
+    assert "STEMI" not in reply
+    assert "stemi" not in reply.lower()
+    # It falls back to the shared deflection rather than leaking.
+    assert reply == PATIENT_DEFLECTION
+
+
+async def test_patient_reply_cloud_degrades_when_unavailable() -> None:
+    # If the cloud provider is unavailable, patient_reply degrades to the scripted
+    # LocalProvider reply rather than propagating the error.
+    class DownProvider:
+        async def complete(self, system: str, messages: list[dict[str, str]]) -> str:
+            raise LLMUnavailableError("simulated timeout")
+
+    case = _make_case()
+    reply = await patient_reply(case, [], "What medications are you taking?", DownProvider())
+    # The scripted fallback answers the medications question from case facts.
+    assert "lisinopril" in reply.lower()
+    assert "metformin" in reply.lower()
 
 
 async def test_patient_reply_uses_transcript_for_cloud_provider() -> None:

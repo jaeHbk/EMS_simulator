@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import re
 
-from app.llm.prompts import build_patient_system
-from app.llm.provider import LLMProvider, LocalProvider
+from app.llm.prompts import PATIENT_DEFLECTION, build_patient_system
+from app.llm.provider import LLMProvider, LLMUnavailableError, LocalProvider
 from app.models import HistoryTurn, TriageCase
 from app.models.encounter import Role
 
@@ -32,6 +32,24 @@ _DIAGNOSIS_QUERY = re.compile(
     r"what level|acuity)\b",
     re.IGNORECASE,
 )
+
+# Post-generation anti-leak guard for the cloud path: a bare ESI level, the words
+# "acuity"/"triage level", or any diagnosis-category token would betray the answer.
+_ESI_PATTERN = re.compile(r"\besi\s*[1-5]\b", re.IGNORECASE)
+_ACUITY_PATTERN = re.compile(r"\bacuity\b|\btriage level\b", re.IGNORECASE)
+
+
+def _leaks_answer(reply: str, case: TriageCase) -> bool:
+    """True if ``reply`` would betray the diagnosis or ESI/acuity to the trainee."""
+    lowered = reply.lower()
+    if _ESI_PATTERN.search(lowered) or _ACUITY_PATTERN.search(lowered):
+        return True
+    if case.outcome is not None:
+        for category in case.outcome.diagnosisCategories:
+            token = category.strip().lower()
+            if token and token in lowered:
+                return True
+    return False
 
 
 def _join(values: list[str], *, empty: str) -> str:
@@ -75,10 +93,7 @@ def _scripted_reply(case: TriageCase, trainee_msg: str) -> str:
 
     # Never leak the diagnosis / acuity, even if asked directly.
     if _DIAGNOSIS_QUERY.search(lowered):
-        return (
-            "I really don't know what's causing it or how serious it is — that's "
-            "what I'm hoping you can tell me. I can describe how I'm feeling."
-        )
+        return PATIENT_DEFLECTION
 
     # Pain / symptom character.
     if re.search(r"\bpain\b|hurt|ache|sore|symptom|feel|feeling|bother", lowered):
@@ -144,11 +159,23 @@ async def patient_reply(
 
     Offline (``LocalProvider``): a deterministic, fact-grounded scripted answer.
     Cloud providers: a grounded system prompt + the transcript via
-    ``provider.complete``.
+    ``provider.complete``. If the cloud call is unavailable (timeout / repeated
+    failure) we degrade gracefully to the scripted reply so the encounter stays
+    recoverable rather than 500-ing. Whatever the cloud model returns is then run
+    through a post-generation anti-leak guard before it reaches the trainee.
     """
     if isinstance(provider, LocalProvider):
         return _scripted_reply(case, trainee_msg)
 
     system = _build_system(case)
     messages = _to_messages(history, trainee_msg)
-    return await provider.complete(system, messages)
+    try:
+        reply = await provider.complete(system, messages)
+    except LLMUnavailableError:
+        return _scripted_reply(case, trainee_msg)
+
+    # Anti-leak guard on the cloud path: if the model named a diagnosis / ESI /
+    # acuity, replace the whole reply with the shared deflection.
+    if _leaks_answer(reply, case):
+        return PATIENT_DEFLECTION
+    return reply
