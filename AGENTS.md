@@ -32,10 +32,11 @@ defines every value that crosses the Python↔TypeScript boundary. Workflow:
 1. Need a new cross-boundary field? **Edit the schema first.**
 2. Update the Pydantic model (`backend/app/models/`) and the TS type
    (`frontend/src/api/`) to match.
-3. `backend/tests/test_contract.py` validates that real **Python** objects conform
-   to the schemas (TriageCase incl. the MIMIC-loader path, Encounter, ScoreReport).
-   It must stay green. Caveat: the TS `contract.ts` is not yet auto-validated against
-   the schemas — keep it in lockstep with the schema and models by hand.
+3. Both sides are auto-validated against the schemas and must stay green:
+   `backend/tests/test_contract.py` validates real **Python** objects (TriageCase
+   incl. the MIMIC-loader path, Encounter, ScoreReport), and
+   `frontend/src/api/contract-schema.test.ts` validates `contract.ts`-typed fixtures
+   with ajv. A field renamed/typed wrong in either language fails its conformance test.
 
 Nullability rule of thumb: a field any producer can leave unset is declared nullable
 in **all three** places (`["T","null"]` in the schema, `T | None` in Pydantic,

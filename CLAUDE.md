@@ -52,12 +52,11 @@ cross-boundary surface:
 **Rule: never invent a field that isn't in a schema.** If a feature needs new data
 across the boundary, edit the schema first, then update **all three** embodiments:
 the JSON schema, the Pydantic model (`backend/app/models/`), and the TS type
-(`frontend/src/api/contract.ts`). `backend/tests/test_contract.py` validates that
-real backend objects (TriageCase, Encounter, ScoreReport — including a case built
-by the MIMIC loader) conform to the schemas. Note its current limit: it guards the
-**Python** side only; the TS `contract.ts` is hand-maintained to match and is not
-yet auto-validated against the schemas. Keep all three in lockstep by hand until a
-TS-side conformance check exists.
+(`frontend/src/api/contract.ts`). Both sides are auto-validated against the schemas:
+`backend/tests/test_contract.py` validates real backend objects (TriageCase incl.
+the MIMIC-loader path, Encounter, ScoreReport), and
+`frontend/src/api/contract-schema.test.ts` validates `contract.ts`-typed fixtures
+with ajv. A drift in either language fails its test — keep all three in lockstep.
 
 ## The encounter is a state machine
 
