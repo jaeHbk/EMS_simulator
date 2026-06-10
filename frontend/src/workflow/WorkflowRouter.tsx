@@ -3,6 +3,8 @@
 // showing STAGE_ORDER progress. Handles the null/no-encounter state by prompting
 // the trainee to start. Consumes the store ONLY via the documented hook/actions.
 
+import { AlertCircle, ClipboardList } from "lucide-react";
+
 import type { Stage } from "../api/contract";
 import { useEncounterStore } from "../store/encounterStore";
 import { StepIndicator } from "./StepIndicator";
@@ -12,6 +14,9 @@ import { Vitals } from "./Vitals";
 import { EsiAssignment } from "./EsiAssignment";
 import { Interventions } from "./Interventions";
 import { Feedback } from "./Feedback";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 const STAGE_COMPONENTS: Record<Stage, () => JSX.Element> = {
   CASE_LOAD: CaseLoad,
@@ -31,40 +36,52 @@ export function WorkflowRouter(): JSX.Element {
   // No-encounter state: prompt to start.
   if (!encounter) {
     return (
-      <div className="workflow workflow--empty">
-        {error && (
-          <p className="workflow__error" role="alert">
-            {error}
+      <Card className="mx-auto max-w-md">
+        <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <ClipboardList className="h-6 w-6" />
+          </div>
+          {error && (
+            <p role="alert" className="text-sm font-medium text-destructive">
+              {error}
+            </p>
+          )}
+          <p className="text-sm text-muted-foreground">
+            No active encounter. Start one to begin triaging a patient.
           </p>
-        )}
-        <p className="workflow__prompt">
-          No active encounter. Start one to begin triaging a patient.
-        </p>
-        <button
-          type="button"
-          className="workflow__start"
-          disabled={loading}
-          onClick={() => {
-            void createEncounter();
-          }}
-        >
-          {loading ? "Loading…" : "Start new encounter"}
-        </button>
-      </div>
+          <Button
+            type="button"
+            disabled={loading}
+            onClick={() => {
+              void createEncounter();
+            }}
+          >
+            {loading ? "Loading…" : "Start new encounter"}
+          </Button>
+        </CardContent>
+      </Card>
     );
   }
 
   const StageComponent = STAGE_COMPONENTS[encounter.stage];
 
   return (
-    <div className="workflow" data-stage={encounter.stage}>
-      <StepIndicator current={encounter.stage} />
+    <div className="flex flex-col gap-6" data-stage={encounter.stage}>
+      <Card>
+        <CardHeader className="py-4">
+          <StepIndicator current={encounter.stage} />
+        </CardHeader>
+      </Card>
+
       {error && (
-        <p className="workflow__error" role="alert">
-          {error}
-        </p>
+        <Alert variant="destructive" role="alert">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Something went wrong</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
-      <div className="workflow__stage">
+
+      <div>
         <StageComponent />
       </div>
     </div>

@@ -9,7 +9,14 @@ module.exports = {
   parser: "@typescript-eslint/parser",
   parserOptions: { ecmaVersion: "latest", sourceType: "module" },
   plugins: ["@typescript-eslint", "react-refresh"],
-  ignorePatterns: ["dist", ".eslintrc.cjs", "vite.config.ts"],
+  ignorePatterns: [
+    "dist",
+    ".eslintrc.cjs",
+    "vite.config.ts",
+    // Build-time config files (CommonJS / Node globals), not app source.
+    "tailwind.config.js",
+    "postcss.config.js",
+  ],
   rules: {
     "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
     // Honour the leading-underscore convention for intentionally-unused bindings
@@ -24,7 +31,7 @@ module.exports = {
       // Presentational components co-locate their small static data tables with the
       // component. That trips react-refresh's HMR-only heuristic but is intentional
       // and has no runtime/build impact, so don't fail the lint gate on it.
-      files: ["src/components/*.tsx", "src/workflow/*.tsx"],
+      files: ["src/components/*.tsx", "src/components/ui/*.tsx", "src/workflow/*.tsx"],
       rules: { "react-refresh/only-export-components": "off" },
     },
   ],

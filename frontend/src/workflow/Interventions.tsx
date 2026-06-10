@@ -6,9 +6,19 @@
 // feedback call would then be an illegal FEEDBACK -> FEEDBACK transition).
 
 import { useEffect, useState } from "react";
+import { ClipboardList, ArrowRight } from "lucide-react";
 import { InterventionPicker } from "../components/InterventionPicker";
 import type { CriticalIntervention } from "../api/contract";
 import { useEncounterStore } from "../store/encounterStore";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 export function Interventions(): JSX.Element {
   const encounter = useEncounterStore((s) => s.encounter);
@@ -30,7 +40,7 @@ export function Interventions(): JSX.Element {
   }, [recorded]);
 
   if (!encounter) {
-    return <p className="stage__empty">No active encounter.</p>;
+    return <p className="stage__empty text-sm text-muted-foreground">No active encounter.</p>;
   }
 
   const toggle = (key: CriticalIntervention): void => {
@@ -58,25 +68,46 @@ export function Interventions(): JSX.Element {
     })();
   };
 
+  const selectedCount = selected.size;
+
   return (
     <section className="stage stage--interventions" aria-label="Interventions">
-      <h2 className="stage__title">Critical interventions</h2>
-      <p className="stage__hint">
-        Select every critical intervention you would initiate at triage.
-      </p>
-      <InterventionPicker
-        selected={selected}
-        onToggle={toggle}
-        disabled={loading}
-      />
-      <button
-        type="button"
-        className="stage__advance"
-        disabled={loading}
-        onClick={submitAndAdvance}
-      >
-        Submit and see feedback
-      </button>
+      <Card>
+        <CardHeader>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <ClipboardList className="size-5" aria-hidden="true" />
+              </span>
+              <div className="space-y-1">
+                <h2 className="stage__title text-lg font-semibold leading-none tracking-tight">
+                  Critical interventions
+                </h2>
+                <CardDescription>
+                  Select every critical intervention you would initiate at triage.
+                </CardDescription>
+              </div>
+            </div>
+            <Badge variant={selectedCount > 0 ? "default" : "secondary"} className="shrink-0">
+              {selectedCount} selected
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <InterventionPicker selected={selected} onToggle={toggle} disabled={loading} />
+        </CardContent>
+        <CardFooter className="justify-end">
+          <Button
+            type="button"
+            className="stage__advance"
+            disabled={loading}
+            onClick={submitAndAdvance}
+          >
+            {loading ? "Submitting…" : "Submit and see feedback"}
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </Button>
+        </CardFooter>
+      </Card>
     </section>
   );
 }
