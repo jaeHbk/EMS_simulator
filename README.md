@@ -58,8 +58,23 @@ cd frontend && npm install && npm run dev   # http://localhost:5173
 ```
 
 Runs with **no API key and no network** out of the box: it uses the bundled
-open-access demo cases + synthetic generator and a scripted local patient stub. Set
-`ANTHROPIC_API_KEY` (and `LLM_PROVIDER=anthropic`) for real LLM-driven patients.
+synthetic generator and a scripted local patient stub. Set `ANTHROPIC_API_KEY`
+(and `LLM_PROVIDER=anthropic`) for real LLM-driven patients.
+
+## Deploy with Docker
+
+```bash
+docker compose up --build      # then open http://localhost:8080
+```
+
+The frontend (nginx) serves the built SPA and reverse-proxies `/api` to the backend
+container. Configure via environment (or a `.env` file compose reads):
+
+- `LLM_PROVIDER` (`local` default; `anthropic`/`openai` for cloud) + the matching
+  `*_API_KEY`
+- `CORS_ALLOW_ORIGINS` — set to your frontend's public URL when deploying beyond
+  localhost (defaults to `http://localhost:8080` under compose)
+- `ENABLED_SOURCES` — e.g. `synthetic` or `mimic_demo,synthetic`
 
 ## Data
 

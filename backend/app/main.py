@@ -1,9 +1,9 @@
 """FastAPI application entry point for the ED Triage Trainer backend.
 
-Wires the API router, configures CORS for the Vite dev origin, initializes the
-SQLite store at startup, and exposes a health check. The app runs fully offline
-with no configuration: ``LLM_PROVIDER=local`` and the bundled mimic_demo +
-synthetic sources are the defaults (see ``app/config.py``).
+Wires the API router, configures CORS from settings (``CORS_ALLOW_ORIGINS``),
+initializes the SQLite store at startup, and exposes a health check. The app runs
+fully offline with no configuration: ``LLM_PROVIDER=local`` and the bundled
+mimic_demo + synthetic sources are the defaults (see ``app/config.py``).
 
 Run with::
 
@@ -24,13 +24,6 @@ from app.config import get_settings
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
-
-# Origins allowed to call the API from the browser. The Vite dev server runs on
-# :5173 (see frontend/vite.config.ts); both loopback hostnames are included.
-CORS_ALLOW_ORIGINS: list[str] = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
 
 
 @asynccontextmanager
@@ -55,7 +48,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=CORS_ALLOW_ORIGINS,
+        allow_origins=get_settings().cors_origin_list,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

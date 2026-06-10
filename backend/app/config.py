@@ -25,9 +25,17 @@ class Settings(BaseSettings):
     # Persistence
     database_url: str = "sqlite:///./ed_triage.sqlite3"
 
+    # Comma-separated browser origins allowed by CORS. Defaults to the Vite dev
+    # origins; set to your deployed frontend URL(s) in production.
+    cors_allow_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+
     @property
     def enabled_source_list(self) -> list[str]:
         return [s.strip() for s in self.enabled_sources.split(",") if s.strip()]
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
 
 
 _settings: Settings | None = None
