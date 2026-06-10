@@ -70,6 +70,35 @@ class Demographics(_Strict):
     sex: Sex
 
 
+class RedFlagConcept(BaseModel):
+    """Concept keywords for one red flag, enabling synonym/anchor matching.
+
+    A flag with a concept is surfaced when an *anchor* token appears AND (if the
+    ``any`` synonym list is non-empty) at least one ``any`` token appears — both
+    matched as whole tokens against the trainee transcript, so a paraphrased
+    clinical question scores instead of requiring the flag's literal words.
+
+    ``any`` is a Python builtin, so the attribute is ``any_`` with alias ``any``.
+    ``populate_by_name`` accepts either spelling on input; ``serialize_by_alias``
+    emits ``any`` on dump so the wire shape matches the schema.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid", populate_by_name=True, serialize_by_alias=True
+    )
+
+    flag: str = Field(description="Must equal one of the case's redFlags labels.")
+    anchors: list[str] = Field(
+        default_factory=list,
+        description="Core action/sensation tokens; at least one must appear (whole-token).",
+    )
+    any_: list[str] = Field(
+        default_factory=list,
+        alias="any",
+        description="Optional synonyms; if non-empty, at least one must appear (whole-token).",
+    )
+
+
 class History(_Strict):
     hpi: str | None = None
     pmh: list[str] = Field(default_factory=list)
@@ -79,6 +108,10 @@ class History(_Strict):
     redFlags: list[str] = Field(
         default_factory=list,
         description="Critical findings a competent history surfaces; scored under completeness.",
+    )
+    redFlagConcepts: list[RedFlagConcept] = Field(
+        default_factory=list,
+        description="Optional concept keywords per red flag (anchors + synonyms).",
     )
 
 

@@ -12,6 +12,13 @@
       "socialHistory": "Non-smoker, walks daily.",
       "redFlags": [
         "Confirm no hypertensive emergency symptoms (chest pain, neuro deficit, visual change)"
+      ],
+      "redFlagConcepts": [
+        {
+          "flag": "Confirm no hypertensive emergency symptoms (chest pain, neuro deficit, visual change)",
+          "anchors": ["chest", "headache", "vision", "visual", "blurry", "weakness", "numb", "numbness", "breath", "breathing", "symptoms", "neuro"],
+          "any": ["chest", "headache", "vision", "visual", "blurry", "weakness", "numb", "numbness", "breath", "breathing", "neuro"]
+        }
       ]
     },
     "groundTruthVitals": {

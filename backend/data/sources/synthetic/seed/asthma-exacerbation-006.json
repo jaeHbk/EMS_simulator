@@ -14,6 +14,21 @@
         "Moderate asthma exacerbation with increased work of breathing",
         "Requires nebulized bronchodilators and steroids",
         "Needs continuous monitoring for deterioration"
+      ],
+      "redFlagConcepts": [
+        {
+          "flag": "Moderate asthma exacerbation with increased work of breathing",
+          "anchors": ["breathing", "breathe", "breath", "wheeze", "wheezing", "short", "dyspnea", "speak", "speaking", "sentences", "phrases", "accessory", "effort"],
+          "any": ["breathing", "breathe", "wheeze", "wheezing", "short", "dyspnea", "speak", "speaking", "sentences", "phrases"]
+        },
+        {
+          "flag": "Requires nebulized bronchodilators and steroids",
+          "anchors": ["inhaler", "albuterol", "nebulizer", "nebs", "bronchodilator", "steroids", "steroid", "puffs", "rescue"]
+        },
+        {
+          "flag": "Needs continuous monitoring for deterioration",
+          "anchors": ["monitor", "monitoring", "oxygen", "saturation", "spo2", "reassess", "worse", "worsening", "deteriorate", "peak", "flow"]
+        }
       ]
     },
     "groundTruthVitals": {

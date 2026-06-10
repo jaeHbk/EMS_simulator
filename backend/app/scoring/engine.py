@@ -40,7 +40,7 @@ from app.models import (
 )
 from app.models.encounter import Role
 from app.models.score import DimensionKey, EsiResult
-from app.models.triage_case import Disposition
+from app.models.triage_case import Disposition, RedFlagConcept
 from app.scoring.esi_algorithm import EsiDecision, esi_decision
 
 # ---------------------------------------------------------------------------
@@ -289,8 +289,39 @@ def _red_flag_surfaced(red_flag: str, transcript_tokens: set[str]) -> bool:
     return all(word in transcript_tokens for word in words)
 
 
+def _concept_surfaced(concept: RedFlagConcept, transcript_tokens: set[str]) -> bool:
+    """A concept-backed red flag is surfaced by paraphrase, not transcription.
+
+    Surfaced ⇔ at least one ``anchor`` token appears AND, when the concept's
+    ``any`` synonym list is non-empty, at least one ``any`` token also appears.
+    All keywords are matched as WHOLE tokens against the trainee transcript (the
+    same word-boundary tokenization as the fallback), so "arm" is not surfaced by
+    "warm".
+
+    The anchor requirement is deliberate: an ``any`` token alone (e.g. naming a
+    body part like "arm") must NOT surface the flag, which prevents trivial
+    single-word gaming and keeps the signal tied to a real history question
+    (the action/sensation captured by the anchors). A concept with no anchors is
+    therefore never surfaceable.
+    """
+    anchor_hit = any(a.lower() in transcript_tokens for a in concept.anchors)
+    if not anchor_hit:
+        return False
+    if concept.any_:
+        return any(s.lower() in transcript_tokens for s in concept.any_)
+    return True
+
+
 def _history_dimension(enc: Encounter, case: TriageCase) -> tuple[ScoreDimension, list[str]]:
-    """Score history completeness and return the missed red flags."""
+    """Score history completeness and return the missed red flags.
+
+    Each red flag is matched against the trainee transcript. A flag that carries
+    a concept in ``redFlagConcepts`` (matched by exact label) is surfaced via
+    :func:`_concept_surfaced` (anchors + synonyms, paraphrase-tolerant); a flag
+    with no concept falls back to :func:`_red_flag_surfaced` (all salient tokens
+    verbatim). ``missedRedFlags`` always carries the flag LABEL string regardless
+    of which matcher was used, so the wire shape is unchanged.
+    """
     red_flags = case.presentation.history.redFlags
     if not red_flags:
         dim = ScoreDimension(
@@ -302,11 +333,22 @@ def _history_dimension(enc: Encounter, case: TriageCase) -> tuple[ScoreDimension
         )
         return dim, []
 
+    # Map each concept to its flag label. A concept whose flag is not in redFlags
+    # is simply unused; the listed redFlags drive scoring.
+    concepts: dict[str, RedFlagConcept] = {
+        c.flag: c for c in case.presentation.history.redFlagConcepts
+    }
+
     transcript_tokens = _transcript_tokens(enc)
     surfaced: list[str] = []
     missed: list[str] = []
     for flag in red_flags:
-        if _red_flag_surfaced(flag, transcript_tokens):
+        concept = concepts.get(flag)
+        if concept is not None:
+            is_surfaced = _concept_surfaced(concept, transcript_tokens)
+        else:
+            is_surfaced = _red_flag_surfaced(flag, transcript_tokens)
+        if is_surfaced:
             surfaced.append(flag)
         else:
             missed.append(flag)

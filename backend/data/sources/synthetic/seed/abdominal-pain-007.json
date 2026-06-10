@@ -14,6 +14,22 @@
         "Migratory RLQ pain with peritoneal signs (concern for appendicitis)",
         "Needs pregnancy test before imaging",
         "Multiple resources expected (labs, imaging, IV analgesia)"
+      ],
+      "redFlagConcepts": [
+        {
+          "flag": "Migratory RLQ pain with peritoneal signs (concern for appendicitis)",
+          "anchors": ["move", "moved", "moves", "migrate", "migrated", "started", "begin", "began", "worse", "movement", "walking", "rebound", "tender", "location", "where"],
+          "any": ["move", "moved", "migrate", "migrated", "started", "worse", "movement", "rebound", "tender", "right", "lower", "quadrant", "location", "where"]
+        },
+        {
+          "flag": "Needs pregnancy test before imaging",
+          "anchors": ["pregnant", "pregnancy", "period", "menstrual", "lmp", "contracept", "contraception", "sexually"],
+          "any": ["pregnant", "pregnancy", "period", "menstrual", "lmp", "contraceptive", "sexually"]
+        },
+        {
+          "flag": "Multiple resources expected (labs, imaging, IV analgesia)",
+          "anchors": ["labs", "bloods", "imaging", "ultrasound", "ct", "scan", "analgesia", "pain", "medication", "fluids", "iv"]
+        }
       ]
     },
     "groundTruthVitals": {

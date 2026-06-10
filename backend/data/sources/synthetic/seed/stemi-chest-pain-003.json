@@ -14,6 +14,21 @@
         "Crushing chest pain radiating to arm/jaw with diaphoresis",
         "High-risk cardiac presentation requiring immediate ECG",
         "Time-critical (door-to-ECG within 10 minutes)"
+      ],
+      "redFlagConcepts": [
+        {
+          "flag": "Crushing chest pain radiating to arm/jaw with diaphoresis",
+          "anchors": ["radiate", "radiates", "radiating", "spread", "spreads", "spreading", "move", "moves", "travel", "travels", "sweaty", "sweating", "diaphoretic", "clammy"],
+          "any": ["arm", "jaw", "shoulder", "neck", "back", "sweat", "sweaty", "sweating", "diaphoretic", "clammy"]
+        },
+        {
+          "flag": "High-risk cardiac presentation requiring immediate ECG",
+          "anchors": ["ecg", "ekg", "electrocardiogram", "cardiac", "heart", "monitor"]
+        },
+        {
+          "flag": "Time-critical (door-to-ECG within 10 minutes)",
+          "anchors": ["when", "onset", "start", "started", "begin", "began", "long", "duration", "ago"]
+        }
       ]
     },
     "groundTruthVitals": {

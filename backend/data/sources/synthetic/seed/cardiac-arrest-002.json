@@ -15,6 +15,27 @@
         "Unresponsive / not protecting airway",
         "Shockable rhythm (VF)",
         "Requires immediate post-arrest resuscitation"
+      ],
+      "redFlagConcepts": [
+        {
+          "flag": "Cardiac arrest with ROSC",
+          "anchors": ["arrest", "collapse", "collapsed", "cpr", "rosc", "pulse", "circulation", "down"],
+          "any": ["arrest", "collapse", "collapsed", "cpr", "rosc", "pulse", "circulation"]
+        },
+        {
+          "flag": "Unresponsive / not protecting airway",
+          "anchors": ["unresponsive", "responsive", "responding", "conscious", "consciousness", "airway", "breathing", "gag", "alert", "avpu"],
+          "any": ["unresponsive", "responsive", "responding", "conscious", "consciousness", "airway", "breathing", "gag"]
+        },
+        {
+          "flag": "Shockable rhythm (VF)",
+          "anchors": ["rhythm", "shock", "shocked", "shockable", "defibrillation", "defibrillated", "fibrillation", "vf", "ecg", "ekg"],
+          "any": ["rhythm", "shock", "shocked", "shockable", "defibrillation", "fibrillation", "vf"]
+        },
+        {
+          "flag": "Requires immediate post-arrest resuscitation",
+          "anchors": ["resuscitation", "resuscitate", "ventilation", "ventilate", "intubation", "intubate", "monitor", "access", "pressors"]
+        }
       ]
     },
     "groundTruthVitals": {

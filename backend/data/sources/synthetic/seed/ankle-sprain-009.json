@@ -12,6 +12,13 @@
       "socialHistory": "Healthy college athlete, non-smoker.",
       "redFlags": [
         "Apply Ottawa ankle rules to decide if X-ray is needed"
+      ],
+      "redFlagConcepts": [
+        {
+          "flag": "Apply Ottawa ankle rules to decide if X-ray is needed",
+          "anchors": ["weight", "bear", "walk", "walking", "stand", "tender", "tenderness", "bone", "malleolus", "ottawa", "press", "steps"],
+          "any": ["weight", "bear", "walk", "walking", "stand", "tender", "tenderness", "bone", "malleolus", "ottawa", "steps"]
+        }
       ]
     },
     "groundTruthVitals": {

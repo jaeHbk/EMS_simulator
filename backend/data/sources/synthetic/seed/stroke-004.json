@@ -14,6 +14,22 @@
         "Acute focal neurological deficit (FAST positive)",
         "Within thrombolysis/thrombectomy window — time-critical",
         "Requires immediate stroke pathway activation and neuro checks"
+      ],
+      "redFlagConcepts": [
+        {
+          "flag": "Acute focal neurological deficit (FAST positive)",
+          "anchors": ["weakness", "weak", "droop", "drooping", "numb", "numbness", "slurred", "speech", "speak", "talking", "face", "facial", "arm", "leg", "vision"],
+          "any": ["weakness", "weak", "droop", "numb", "numbness", "slurred", "speech", "face", "facial", "arm", "leg", "vision", "side"]
+        },
+        {
+          "flag": "Within thrombolysis/thrombectomy window — time-critical",
+          "anchors": ["when", "onset", "start", "started", "begin", "began", "long", "last", "well", "ago", "time"],
+          "any": ["when", "onset", "start", "started", "long", "last", "well", "ago", "time", "minutes", "hours"]
+        },
+        {
+          "flag": "Requires immediate stroke pathway activation and neuro checks",
+          "anchors": ["stroke", "neuro", "neurological", "glucose", "sugar", "ct", "scan", "imaging"]
+        }
       ]
     },
     "groundTruthVitals": {

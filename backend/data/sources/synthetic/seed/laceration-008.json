@@ -13,6 +13,17 @@
       "redFlags": [
         "Confirm distal neurovascular and tendon function intact",
         "Verify tetanus immunization status"
+      ],
+      "redFlagConcepts": [
+        {
+          "flag": "Confirm distal neurovascular and tendon function intact",
+          "anchors": ["move", "moves", "movement", "feel", "feeling", "sensation", "numb", "numbness", "tingling", "grip", "fingers", "pulse", "circulation", "tendon", "function"],
+          "any": ["move", "moves", "movement", "feel", "feeling", "sensation", "numb", "numbness", "tingling", "grip", "fingers", "pulse", "circulation", "hand"]
+        },
+        {
+          "flag": "Verify tetanus immunization status",
+          "anchors": ["tetanus", "vaccination", "vaccine", "vaccinated", "immunization", "immunized", "shot", "booster"]
+        }
       ]
     },
     "groundTruthVitals": {

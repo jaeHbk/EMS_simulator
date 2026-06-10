@@ -48,6 +48,20 @@
               "type": "array",
               "items": { "type": "string" },
               "description": "Critical findings a competent history would surface; scored under history completeness."
+            },
+            "redFlagConcepts": {
+              "type": "array",
+              "description": "Optional concept keywords per red flag, enabling synonym/anchor matching instead of exact-token. flag must equal one of redFlags.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["flag", "anchors"],
+                "properties": {
+                  "flag": { "type": "string" },
+                  "anchors": { "type": "array", "items": { "type": "string" } },
+                  "any": { "type": "array", "items": { "type": "string" } }
+                }
+              }
             }
           }
         },

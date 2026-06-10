@@ -30,6 +30,7 @@ from app.models.triage_case import (
     Outcome,
     Presentation,
     Provenance,
+    RedFlagConcept,
     Sex,
     Vitals,
 )
@@ -45,6 +46,7 @@ def make_case(
     *,
     expert_esi: int = 3,
     red_flags: list[str] | None = None,
+    red_flag_concepts: list[RedFlagConcept] | None = None,
     ground_truth_vitals: Vitals | None = None,
     critical_interventions: list[CriticalIntervention] | None = None,
     outcome: Outcome | None = None,
@@ -55,7 +57,10 @@ def make_case(
         demographics=Demographics(ageBand="25-34", sex=Sex.female),
         presentation=Presentation(
             chiefComplaint="chest pain",
-            history=History(redFlags=red_flags or []),
+            history=History(
+                redFlags=red_flags or [],
+                redFlagConcepts=red_flag_concepts or [],
+            ),
             groundTruthVitals=ground_truth_vitals or Vitals(),
         ),
         expert=ExpertLabels(
@@ -342,6 +347,177 @@ def test_red_flag_requires_all_salient_words() -> None:
     )
     report = score(enc, case)
     assert _dim(report, DimensionKey.HISTORY_COMPLETENESS).score == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Concept-based red-flag detection (anchors + synonyms). A flag that carries a
+# concept is surfaced by paraphrase: an anchor token plus (if `any` is given)
+# an any-token, both matched as whole tokens — not by verbatim transcription.
+# ---------------------------------------------------------------------------
+
+
+def _radiation_concept() -> RedFlagConcept:
+    return RedFlagConcept(
+        flag="Radiation to left arm",
+        anchors=["radiat", "spread", "go", "move"],
+        any=["arm", "jaw", "shoulder"],
+    )
+
+
+def test_concept_red_flag_surfaced_by_paraphrase() -> None:
+    # Trainee never says the literal label, but asks about spreading + arm.
+    case = make_case(
+        red_flags=["Radiation to left arm"],
+        red_flag_concepts=[_radiation_concept()],
+    )
+    enc = make_encounter(
+        history=[
+            HistoryTurn(role=Role.trainee, text="Does the pain spread anywhere?"),
+            HistoryTurn(role=Role.patient, text="Hmm, maybe."),
+            HistoryTurn(role=Role.trainee, text="To your arm?"),
+        ]
+    )
+    report = score(enc, case)
+    assert _dim(report, DimensionKey.HISTORY_COMPLETENESS).score == 1.0
+    assert "Radiation to left arm" not in report.missedRedFlags
+    assert report.missedRedFlags == []
+
+
+def test_concept_red_flag_missed_when_nothing_relevant_asked() -> None:
+    case = make_case(
+        red_flags=["Radiation to left arm"],
+        red_flag_concepts=[_radiation_concept()],
+    )
+    enc = make_encounter(
+        history=[HistoryTurn(role=Role.trainee, text="How long have you felt unwell?")]
+    )
+    report = score(enc, case)
+    assert _dim(report, DimensionKey.HISTORY_COMPLETENESS).score == 0.0
+    assert report.missedRedFlags == ["Radiation to left arm"]
+
+
+def test_concept_red_flag_requires_an_anchor_not_just_an_any_token() -> None:
+    # An any-token alone ("arm") with no anchor must NOT surface the flag. This
+    # blocks trivial single-word gaming: naming a body part is not history-taking.
+    case = make_case(
+        red_flags=["Radiation to left arm"],
+        red_flag_concepts=[_radiation_concept()],
+    )
+    enc = make_encounter(
+        history=[HistoryTurn(role=Role.trainee, text="Is it your arm?")]
+    )
+    report = score(enc, case)
+    assert _dim(report, DimensionKey.HISTORY_COMPLETENESS).score == 0.0
+    assert report.missedRedFlags == ["Radiation to left arm"]
+
+
+def test_concept_red_flag_requires_an_any_token_when_any_is_nonempty() -> None:
+    # An anchor alone ("spread"), with a non-empty `any` list and no any-token,
+    # is not enough: the concept demands both an anchor and an any-token.
+    case = make_case(
+        red_flags=["Radiation to left arm"],
+        red_flag_concepts=[_radiation_concept()],
+    )
+    enc = make_encounter(
+        history=[HistoryTurn(role=Role.trainee, text="Does the pain spread at all?")]
+    )
+    report = score(enc, case)
+    assert _dim(report, DimensionKey.HISTORY_COMPLETENESS).score == 0.0
+    assert report.missedRedFlags == ["Radiation to left arm"]
+
+
+def test_concept_red_flag_anchor_only_surfaces_when_any_is_empty() -> None:
+    # With no `any` synonyms, an anchor token alone surfaces the flag. Matching is
+    # whole-token, so the anchor must be a complete word the trainee actually says
+    # ("sweaty"), not a stem ("sweat") that only prefixes "sweating".
+    case = make_case(
+        red_flags=["Diaphoresis"],
+        red_flag_concepts=[
+            RedFlagConcept(flag="Diaphoresis", anchors=["sweaty", "diaphoretic", "clammy"])
+        ],
+    )
+    enc = make_encounter(
+        history=[HistoryTurn(role=Role.trainee, text="Were you clammy or sweaty with it?")]
+    )
+    report = score(enc, case)
+    assert _dim(report, DimensionKey.HISTORY_COMPLETENESS).score == 1.0
+    assert report.missedRedFlags == []
+
+
+def test_concept_matching_is_whole_token_not_substring() -> None:
+    # Anchors/any are matched as whole tokens against the transcript, so a short
+    # any-token "arm" is not surfaced by "warm" and an anchor "go" is not by "ago".
+    case = make_case(
+        red_flags=["Radiation to left arm"],
+        red_flag_concepts=[_radiation_concept()],
+    )
+    enc = make_encounter(
+        history=[
+            HistoryTurn(role=Role.trainee, text="Is the area warm? Did this start long ago?")
+        ]
+    )
+    report = score(enc, case)
+    assert _dim(report, DimensionKey.HISTORY_COMPLETENESS).score == 0.0
+    assert report.missedRedFlags == ["Radiation to left arm"]
+
+
+def test_concept_falls_back_for_flags_without_a_concept() -> None:
+    # One flag carries a concept; the other has none and must use the existing
+    # all-salient-tokens fallback. Mixing the two modes in one case works.
+    case = make_case(
+        red_flags=["Radiation to left arm", "syncope"],
+        red_flag_concepts=[_radiation_concept()],
+    )
+    enc = make_encounter(
+        history=[
+            HistoryTurn(role=Role.trainee, text="Does the pain spread to your arm?"),
+            HistoryTurn(role=Role.trainee, text="Any episodes of syncope?"),
+        ]
+    )
+    report = score(enc, case)
+    assert _dim(report, DimensionKey.HISTORY_COMPLETENESS).score == 1.0
+    assert report.missedRedFlags == []
+
+
+def test_concept_missed_flag_keeps_label_wire_shape() -> None:
+    # missedRedFlags still carries the LABEL string (unchanged wire shape), even
+    # when the flag is concept-backed and missed.
+    case = make_case(
+        red_flags=["Radiation to left arm", "syncope"],
+        red_flag_concepts=[_radiation_concept()],
+    )
+    enc = make_encounter(
+        history=[HistoryTurn(role=Role.trainee, text="Does the pain spread to your arm?")]
+    )
+    report = score(enc, case)
+    # Concept flag surfaced; the fallback "syncope" flag missed -> label string.
+    assert _dim(report, DimensionKey.HISTORY_COMPLETENESS).score == pytest.approx(1 / 2)
+    assert report.missedRedFlags == ["syncope"]
+
+
+def test_concept_for_label_not_in_red_flags_is_ignored() -> None:
+    # A concept whose `flag` doesn't match any redFlags label has no effect: the
+    # listed redFlags drive scoring; a stray concept is simply unused.
+    case = make_case(
+        red_flags=["syncope"],
+        red_flag_concepts=[_radiation_concept()],  # flag label not in redFlags
+    )
+    enc = make_encounter(
+        history=[HistoryTurn(role=Role.trainee, text="Any episodes of syncope?")]
+    )
+    report = score(enc, case)
+    assert _dim(report, DimensionKey.HISTORY_COMPLETENESS).score == 1.0
+    assert report.missedRedFlags == []
+
+
+def test_red_flag_concept_round_trips_any_alias() -> None:
+    # The `any` field round-trips through the `any_` alias on JSON dump/load.
+    concept = RedFlagConcept(flag="X", anchors=["a"], any=["b"])
+    dumped = concept.model_dump(mode="json")
+    assert dumped["any"] == ["b"]
+    assert "any_" not in dumped
+    reloaded = RedFlagConcept.model_validate(dumped)
+    assert reloaded.any_ == ["b"]
 
 
 # ---------------------------------------------------------------------------

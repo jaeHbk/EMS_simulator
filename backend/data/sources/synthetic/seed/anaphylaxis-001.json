@@ -15,6 +15,27 @@
         "Hypotension / pre-syncope",
         "Rapidly progressing wheeze with known allergen exposure",
         "Multi-system involvement (skin + respiratory + GI)"
+      ],
+      "redFlagConcepts": [
+        {
+          "flag": "Airway compromise (lip/tongue swelling, stridor)",
+          "anchors": ["swelling", "swollen", "swell", "stridor", "throat", "tongue", "lip", "lips", "voice", "hoarse", "breathing", "breathe"],
+          "any": ["throat", "tongue", "lip", "lips", "swelling", "swollen", "stridor", "breathing", "breathe", "voice", "hoarse"]
+        },
+        {
+          "flag": "Hypotension / pre-syncope",
+          "anchors": ["dizzy", "dizziness", "lightheaded", "faint", "fainting", "syncope", "presyncope", "passed", "pass"]
+        },
+        {
+          "flag": "Rapidly progressing wheeze with known allergen exposure",
+          "anchors": ["wheeze", "wheezing", "allergy", "allergic", "allergen", "exposure", "exposed", "trigger", "eat", "eating", "ate", "sting", "stung", "bite"],
+          "any": ["wheeze", "wheezing", "allergy", "allergic", "allergen", "exposure", "exposed", "food", "shellfish", "nut", "nuts", "bee", "sting"]
+        },
+        {
+          "flag": "Multi-system involvement (skin + respiratory + GI)",
+          "anchors": ["rash", "hives", "itch", "itching", "vomit", "vomited", "vomiting", "nausea", "diarrhea", "skin", "abdominal", "stomach"],
+          "any": ["rash", "hives", "itch", "itching", "vomit", "vomited", "vomiting", "nausea", "diarrhea", "breathing", "breathe", "wheeze", "skin"]
+        }
       ]
     },
     "groundTruthVitals": {

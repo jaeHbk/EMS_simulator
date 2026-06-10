@@ -15,6 +15,27 @@
         "Altered mental status (acute confusion from baseline)",
         "Suspected source (urinary) with end-organ dysfunction",
         "Requires early antibiotics and fluids (sepsis bundle)"
+      ],
+      "redFlagConcepts": [
+        {
+          "flag": "Sepsis criteria: fever + tachycardia + tachypnea + hypotension",
+          "anchors": ["fever", "fevers", "temperature", "temp", "hot", "chills", "rigors", "sweats", "infection"],
+          "any": ["fever", "fevers", "temperature", "chills", "rigors", "hot", "sweats"]
+        },
+        {
+          "flag": "Altered mental status (acute confusion from baseline)",
+          "anchors": ["confused", "confusion", "disoriented", "drowsy", "lethargic", "alert", "oriented", "baseline", "behaving", "himself"],
+          "any": ["confused", "confusion", "disoriented", "drowsy", "lethargic", "mental", "behaving", "baseline", "himself", "self"]
+        },
+        {
+          "flag": "Suspected source (urinary) with end-organ dysfunction",
+          "anchors": ["urine", "urinary", "urinate", "urinating", "pee", "dysuria", "burning", "frequency", "output", "source", "infection"],
+          "any": ["urine", "urinary", "urinate", "urinating", "pee", "dysuria", "burning", "kidney", "output"]
+        },
+        {
+          "flag": "Requires early antibiotics and fluids (sepsis bundle)",
+          "anchors": ["antibiotics", "antibiotic", "fluids", "fluid", "bolus", "cultures", "culture", "lactate"]
+        }
       ]
     },
     "groundTruthVitals": {
