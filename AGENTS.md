@@ -32,9 +32,15 @@ defines every value that crosses the Python↔TypeScript boundary. Workflow:
 1. Need a new cross-boundary field? **Edit the schema first.**
 2. Update the Pydantic model (`backend/app/models/`) and the TS type
    (`frontend/src/api/`) to match.
-3. `backend/tests/test_contract.py` validates conformance both ways. It must stay green.
+3. `backend/tests/test_contract.py` validates that real **Python** objects conform
+   to the schemas (TriageCase incl. the MIMIC-loader path, Encounter, ScoreReport).
+   It must stay green. Caveat: the TS `contract.ts` is not yet auto-validated against
+   the schemas — keep it in lockstep with the schema and models by hand.
 
-Never serialize a field that isn't in a schema. Never let the two sides drift.
+Nullability rule of thumb: a field any producer can leave unset is declared nullable
+in **all three** places (`["T","null"]` in the schema, `T | None` in Pydantic,
+`T | null` in TS). Never serialize a field that isn't in a schema. Never let the
+embodiments drift.
 
 ## The encounter state machine
 

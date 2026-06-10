@@ -5,14 +5,14 @@
   "description": "Automated performance scoring for one completed encounter, produced by the scoring engine and shown at the FEEDBACK stage. Deterministic, rule-based scoring is authoritative; the LLM only authors narrative feedback text, never the numbers.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["encounterId", "esi", "dimensions", "overallPercent", "narrative"],
+  "required": ["encounterId", "esi", "dimensions", "overallPercent", "narrative", "missedRedFlags"],
   "properties": {
     "encounterId": { "type": "string" },
     "esi": {
       "type": "object",
       "description": "The headline result. triageDirection is the project's core metric: under-triage (assigning a less acute level than expert) is the dangerous error the tool exists to reduce.",
       "additionalProperties": false,
-      "required": ["assigned", "expert", "correct", "triageDirection"],
+      "required": ["assigned", "expert", "correct", "triageDirection", "levelsOff"],
       "properties": {
         "assigned": { "type": "integer", "minimum": 1, "maximum": 5 },
         "expert": { "type": "integer", "minimum": 1, "maximum": 5 },

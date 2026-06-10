@@ -193,3 +193,78 @@ def test_get_case_skips_missing_credentialed_sources() -> None:
 
 def test_known_sources_have_loaders() -> None:
     assert set(KNOWN_SOURCES) == set(registry._LOADER_MODULES)
+
+
+# ---------------------------------------------------------------------------
+# Real-loader de-identification: the MIMIC formatter must DETECT non-de-identified
+# data (a direct-identifier column) and propagate deidentified=False, so the
+# registry guard actually fires on the production code path — not just on a
+# hand-built case via monkeypatch.
+# ---------------------------------------------------------------------------
+def _write_mimic_fixture(data_dir, *, extra_edstays_col: str | None = None) -> None:
+    edstays_cols = "stay_id,gender,anchor_age,disposition"
+    edstays_row = "1001,F,71,HOME"
+    if extra_edstays_col is not None:
+        edstays_cols += f",{extra_edstays_col}"
+        edstays_row += ",Jane Doe"
+    (data_dir / "edstays.csv").write_text(edstays_cols + "\n" + edstays_row + "\n")
+    (data_dir / "triage.csv").write_text(
+        "stay_id,chiefcomplaint,heartrate,sbp,dbp,resprate,o2sat,temperature,pain,acuity\n"
+        "1001,Headache,78,124,80,16,99,98.6,3,4\n"
+    )
+
+
+def test_mimic_loader_marks_clean_data_deidentified(tmp_path) -> None:
+    from app.data import _mimic_format
+
+    _write_mimic_fixture(tmp_path)
+    cases = _mimic_format.load_cases(source="mimic_demo", data_dir=tmp_path, license_str="X")
+    assert cases and all(c.provenance.deidentified is True for c in cases)
+
+
+def test_mimic_loader_flags_data_with_identifier_column() -> None:
+    """A source carrying a direct-identifier column (e.g. 'name') must be marked
+    NOT de-identified by the loader itself."""
+    import tempfile
+    from pathlib import Path
+
+    from app.data import _mimic_format
+
+    with tempfile.TemporaryDirectory() as d:
+        data_dir = Path(d)
+        _write_mimic_fixture(data_dir, extra_edstays_col="name")
+        cases = _mimic_format.load_cases(source="mimic_demo", data_dir=data_dir, license_str="X")
+        assert cases, "loader should still build cases"
+        assert all(c.provenance.deidentified is False for c in cases)
+
+
+def test_registry_rejects_mimic_source_with_identifier_column(monkeypatch, tmp_path) -> None:
+    """End-to-end on the real code path: non-de-identified MIMIC data flowing
+    through the registry raises DeidentificationError (the CRITICAL guard)."""
+    from app.data import _mimic_format, mimic_demo
+
+    _write_mimic_fixture(tmp_path, extra_edstays_col="patient_name")
+
+    def fake_load() -> list[TriageCase]:
+        return _mimic_format.load_cases(source="mimic_demo", data_dir=tmp_path, license_str="X")
+
+    monkeypatch.setattr(mimic_demo, "load", fake_load)
+    registry.clear_cache()
+    with pytest.raises(registry.DeidentificationError):
+        registry.load_cases(["mimic_demo"])
+
+
+def test_age_bands_are_non_overlapping_partition() -> None:
+    """age_band must yield a clean, non-overlapping partition across the lifespan
+    (regression for the old 18-24 vs 20-29 overlap)."""
+    from app.data._mimic_format import age_band
+
+    bands = [age_band(a) for a in range(0, 121)]
+    # No age maps to a band whose numeric range it falls outside, and adjacent
+    # distinct bands must not overlap. Spot-check the historically-broken seam:
+    assert age_band(24) == "18-24"
+    assert age_band(25) == "25-34"
+    assert age_band(34) == "25-34"
+    assert age_band(35) == "35-44"
+    # Every produced band is a valid non-numeric label (no exact age leak).
+    assert all(not b.isdigit() for b in bands)

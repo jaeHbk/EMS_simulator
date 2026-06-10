@@ -73,7 +73,7 @@
           "description": "Interventions an expert would initiate at triage. Scored under intervention recognition."
         },
         "resourcesPredicted": {
-          "type": "integer",
+          "type": ["integer", "null"],
           "minimum": 0,
           "description": "ESI resource count (labs, imaging, etc.) used to disambiguate ESI 3 vs 4 vs 5."
         }
@@ -84,8 +84,8 @@
       "description": "Real downstream outcome where the source provides it (MIMIC). Optional; absent for purely synthetic cases.",
       "additionalProperties": false,
       "properties": {
-        "disposition": { "type": "string", "enum": ["DISCHARGE", "ADMIT", "ICU", "OR", "EXPIRED", "TRANSFER", "LWBS", "UNKNOWN"] },
-        "edLengthOfStayMinutes": { "type": "integer", "minimum": 0 },
+        "disposition": { "type": ["string", "null"], "enum": ["DISCHARGE", "ADMIT", "ICU", "OR", "EXPIRED", "TRANSFER", "LWBS", "UNKNOWN", null] },
+        "edLengthOfStayMinutes": { "type": ["integer", "null"], "minimum": 0 },
         "diagnosisCategories": { "type": "array", "items": { "type": "string" }, "description": "De-identified diagnosis groupings, never raw ICD free-text with identifiers." }
       }
     },

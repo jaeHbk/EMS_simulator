@@ -45,7 +45,7 @@
         { "$ref": "score-report.schema.json" }
       ]
     },
-    "startedAt": { "type": "string", "format": "date-time" },
+    "startedAt": { "type": ["string", "null"], "format": "date-time" },
     "completedAt": { "type": ["string", "null"], "format": "date-time" }
   }
 }

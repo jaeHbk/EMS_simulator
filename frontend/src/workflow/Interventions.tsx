@@ -15,6 +15,9 @@ export function Interventions(): JSX.Element {
   const orderInterventions = useEncounterStore((s) => s.orderInterventions);
   const requestFeedback = useEncounterStore((s) => s.requestFeedback);
   const loading = useEncounterStore((s) => s.loading);
+  // Store actions swallow errors (they set `error` and resolve), so we must gate
+  // the feedback request on the success of the order — checking the store error
+  // after the first call rather than chaining unconditionally on .then().
 
   // Seed local selection from whatever is already recorded on the encounter.
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -43,9 +46,16 @@ export function Interventions(): JSX.Element {
   };
 
   const submitAndAdvance = (): void => {
-    // Record the selection, then request feedback (server-side: advance to
-    // FEEDBACK + score + narrative in one step).
-    void orderInterventions([...selected]).then(() => requestFeedback());
+    // Record the selection; only request feedback if that succeeded. The store
+    // captures failures into `error` instead of rejecting, so read it back rather
+    // than chaining on .then() (which would fire even on a failed order and post
+    // /feedback against a server that never recorded the interventions).
+    void (async () => {
+      await orderInterventions([...selected]);
+      if (!useEncounterStore.getState().error) {
+        await requestFeedback();
+      }
+    })();
   };
 
   return (

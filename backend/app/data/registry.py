@@ -33,6 +33,7 @@ from collections.abc import Callable
 from types import ModuleType
 
 from app.data import KNOWN_SOURCES, OPEN_SOURCES, mietic, mimic_demo, mimic_full, synthetic
+from app.data._credentialed import CredentialedDataMissingError
 from app.models import TriageCase
 
 
@@ -124,16 +125,22 @@ def list_case_ids(sources: list[str]) -> list[str]:
 
 
 def get_case(case_id: str) -> TriageCase:
-    """Return the case with ``case_id``, searching every known source.
+    """Return the case with ``case_id``.
 
-    Raises ``KeyError`` if no such case exists. Credentialed sources are searched
-    only if their data is present on disk (a missing credentialed source is
-    skipped here rather than raising, so ``get_case`` stays usable offline).
+    Case ids are source-prefixed (``"<source>:<localid>"``), so we resolve the
+    owning source from the id and search only that source — a case from one source
+    can never be served via another. Raises ``KeyError`` if no such case exists.
+
+    Only :class:`CredentialedDataMissingError` is swallowed (so the lookup stays
+    usable offline when credentialed data is absent). A :class:`DeidentificationError`
+    is NOT swallowed — it must surface, never be silently skipped.
     """
-    for source in KNOWN_SOURCES:
+    prefix, sep, _ = case_id.partition(":")
+    candidate_sources = [prefix] if sep and prefix in _LOADER_MODULES else list(KNOWN_SOURCES)
+    for source in candidate_sources:
         try:
             cases = _load_source(source)
-        except Exception:  # noqa: BLE001 - missing credentialed data must not break lookup
+        except CredentialedDataMissingError:
             continue
         for case in cases:
             if case.caseId == case_id:

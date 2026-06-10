@@ -522,3 +522,67 @@ def test_overall_percent_is_rounded_to_one_decimal() -> None:
     assert report.overallPercent == expected
     # Exactly one decimal place at most.
     assert round(report.overallPercent, 1) == report.overallPercent
+
+
+# ---------------------------------------------------------------------------
+# No-decision (esiAssigned is None) must never be credited as correct
+# ---------------------------------------------------------------------------
+def test_no_esi_decision_never_credited_even_for_expert_esi_5() -> None:
+    """A trainee who assigns no ESI must score 0 on ESI accuracy, even when the
+    least-acute sentinel (5) would otherwise 'match' an expert ESI-5 case."""
+    case = make_case(expert_esi=5)
+    enc = make_encounter(esi_assigned=None)
+    report = score(enc, case)
+    esi_dim = _dim(report, DimensionKey.ESI_ACCURACY)
+    assert esi_dim.score == 0.0
+    # Not reported as a correct triage.
+    assert report.esi.correct is False
+    assert report.esi.triageDirection == TriageDirection.UNDER_TRIAGE
+
+
+def test_no_esi_decision_blank_submission_scores_low_on_esi5_case() -> None:
+    """The whole 'submit nothing on an ESI-5 case' exploit: ESI accuracy is 0, so
+    the overall cannot be inflated by a sentinel match on the top-weighted dim."""
+    case = make_case(expert_esi=5)
+    enc = make_encounter(esi_assigned=None, interventions=[])
+    report = score(enc, case)
+    # ESI_ACCURACY (0.40 weight) contributes 0; overall must be well below a pass.
+    assert _dim(report, DimensionKey.ESI_ACCURACY).score == 0.0
+    assert report.overallPercent < 60.0
+
+
+def test_no_esi_decision_for_acute_case_still_zero_esi() -> None:
+    case = make_case(expert_esi=1)
+    report = score(make_encounter(esi_assigned=None), case)
+    assert _dim(report, DimensionKey.ESI_ACCURACY).score == 0.0
+    assert report.esi.triageDirection == TriageDirection.UNDER_TRIAGE
+
+
+# ---------------------------------------------------------------------------
+# Red-flag matching is whole-token, not bare substring
+# ---------------------------------------------------------------------------
+def test_red_flag_not_surfaced_by_substring_of_a_word() -> None:
+    """'arm' must not be surfaced by 'warm'; 'syncope' not by 'presyncope'."""
+    case = make_case(expert_esi=3, red_flags=["arm", "syncope"])
+    enc = make_encounter(
+        esi_assigned=3,
+        history=[
+            HistoryTurn(role=Role.trainee, text="Is the area warm to the touch?"),
+            HistoryTurn(role=Role.trainee, text="Any presyncope earlier today?"),
+        ],
+    )
+    report = score(enc, case)
+    # Neither red flag should count as surfaced -> both missed, history score 0.
+    assert _dim(report, DimensionKey.HISTORY_COMPLETENESS).score == 0.0
+    assert set(report.missedRedFlags) == {"arm", "syncope"}
+
+
+def test_red_flag_surfaced_by_whole_word() -> None:
+    case = make_case(expert_esi=3, red_flags=["left arm pain"])
+    enc = make_encounter(
+        esi_assigned=3,
+        history=[HistoryTurn(role=Role.trainee, text="Does the pain go to your left arm?")],
+    )
+    report = score(enc, case)
+    assert _dim(report, DimensionKey.HISTORY_COMPLETENESS).score == 1.0
+    assert report.missedRedFlags == []

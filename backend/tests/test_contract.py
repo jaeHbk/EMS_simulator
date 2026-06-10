@@ -186,3 +186,39 @@ def test_every_bundled_case_conforms(sample_case: TriageCase) -> None:
     """Validate *every* bundled case, not just one, so a single bad case can't hide."""
     for case in data_registry.load_cases(list(OPEN_SOURCES)):
         _validate("triage-case", case.model_dump(mode="json"))
+
+
+# ---------------------------------------------------------------------------
+# Real MIMIC-loader path: the synthetic seeds always populate optional fields,
+# so they can't catch schema<->model nullability drift on the MIMIC formatter
+# (which leaves resourcesPredicted / edLengthOfStayMinutes unset). Exercise the
+# real loader against a tiny CSV fixture so that path is actually validated.
+# ---------------------------------------------------------------------------
+def _write_mimic_fixture(data_dir: Path, *, extra_edstays_col: str | None = None) -> None:
+    edstays_cols = "stay_id,gender,anchor_age,disposition"
+    edstays_row = "1001,M,67,ADMITTED"
+    if extra_edstays_col is not None:
+        edstays_cols += f",{extra_edstays_col}"
+        edstays_row += ",SOME_VALUE"
+    (data_dir / "edstays.csv").write_text(edstays_cols + "\n" + edstays_row + "\n")
+    (data_dir / "triage.csv").write_text(
+        "stay_id,chiefcomplaint,heartrate,sbp,dbp,resprate,o2sat,temperature,pain,acuity\n"
+        "1001,Chest pain,104,138,82,20,96,99.1,6,2\n"
+    )
+
+
+def test_mimic_loaded_case_conforms_to_schema(tmp_path: Path) -> None:
+    """A case built by the real MIMIC formatter (optional fields unset) must still
+    validate against the triage-case schema — the drift class the seeds hide."""
+    from app.data import _mimic_format
+
+    _write_mimic_fixture(tmp_path)
+    cases = _mimic_format.load_cases(
+        source="mimic_demo", data_dir=tmp_path, license_str="PhysioNet"
+    )
+    assert len(cases) == 1
+    instance = cases[0].model_dump(mode="json")
+    _validate("triage-case", instance)
+    # The optional fields the formatter leaves unset serialize in a schema-valid way.
+    assert instance["expert"]["esi"] == 2
+    assert instance["provenance"]["deidentified"] is True

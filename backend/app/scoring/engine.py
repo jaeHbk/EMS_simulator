@@ -148,12 +148,26 @@ def _esi_subscore(levels_off: int) -> float:
 def _build_esi_result(enc: Encounter, case: TriageCase) -> EsiResult:
     """Build the headline ESI result.
 
-    ``enc.esiAssigned`` may be ``None`` if the trainee never submitted an ESI;
-    treat that as the worst case (assigned 5, the least acute) so the dangerous
-    "no decision" path scores like maximal under-triage rather than crashing.
+    ``enc.esiAssigned`` may be ``None`` if the trainee never submitted an ESI.
+    A missing decision is NEVER credited as correct, even when the least-acute
+    sentinel happens to equal the expert level (e.g. an expert ESI-5 case): a
+    triage with no acuity decision is a failure to prioritize, which we report as
+    under-triage. The sentinel ``assigned = 5`` (least acute) is used only to
+    satisfy the wire contract (``assigned`` must be 1..5); the no-credit scoring
+    is enforced in ``_esi_dimension`` via the ``decided`` flag. The API also
+    rejects a feedback request with no ESI, so this is a defensive path.
     """
     expert = case.expert.esi
-    assigned = enc.esiAssigned if enc.esiAssigned is not None else 5
+    if enc.esiAssigned is None:
+        return EsiResult(
+            assigned=5,
+            expert=expert,
+            correct=False,
+            triageDirection=TriageDirection.UNDER_TRIAGE,
+            levelsOff=5 - expert,
+        )
+
+    assigned = enc.esiAssigned
     levels_off = assigned - expert
     if levels_off == 0:
         direction = TriageDirection.CORRECT
@@ -172,7 +186,21 @@ def _build_esi_result(enc: Encounter, case: TriageCase) -> EsiResult:
     )
 
 
-def _esi_dimension(esi: EsiResult) -> ScoreDimension:
+def _esi_dimension(esi: EsiResult, decided: bool) -> ScoreDimension:
+    if not decided:
+        # No ESI was assigned. Award zero on the top-weighted dimension: a triage
+        # with no acuity decision must never be credited (in particular it must
+        # not read as correct when the sentinel 5 matches an expert ESI-5 case).
+        return ScoreDimension(
+            key=DimensionKey.ESI_ACCURACY,
+            label=DIMENSION_LABELS[DimensionKey.ESI_ACCURACY],
+            score=0.0,
+            weight=DEFAULT_WEIGHTS[DimensionKey.ESI_ACCURACY],
+            detail=(
+                "No ESI level was assigned. A triage with no acuity decision is "
+                "scored as a failure to prioritize and receives no credit."
+            ),
+        )
     sub = _esi_subscore(esi.levelsOff)
     if esi.correct:
         detail = f"Assigned ESI {esi.assigned} matches the expert ESI {esi.expert}."
@@ -205,24 +233,31 @@ def _salient_words(red_flag: str) -> list[str]:
     return [t for t in tokens if t not in _STOPWORDS]
 
 
-def _trainee_transcript(enc: Encounter) -> str:
-    """Concatenated lowercase text of every trainee history turn."""
-    return " ".join(turn.text for turn in enc.history if turn.role is Role.trainee).lower()
+def _transcript_tokens(enc: Encounter) -> set[str]:
+    """The set of lowercase word tokens across every trainee history turn.
+
+    Tokenized the same way as :func:`_salient_words` so red-flag matching is at
+    word boundaries, not bare substring containment (otherwise "arm" would match
+    "warm" and "syncope" would match "presyncope").
+    """
+    text = " ".join(turn.text for turn in enc.history if turn.role is Role.trainee).lower()
+    return set(re.findall(r"[a-z0-9]+", text))
 
 
-def _red_flag_surfaced(red_flag: str, transcript: str) -> bool:
-    """A red flag is surfaced if ALL its salient words appear (substring,
-    case-insensitive) in the trainee's history transcript.
+def _red_flag_surfaced(red_flag: str, transcript_tokens: set[str]) -> bool:
+    """A red flag is surfaced if ALL its salient words appear as whole tokens in
+    the trainee's history transcript.
 
     Requiring all salient words keeps detection deterministic and conservative:
     merely mentioning a common word does not count a multi-word red flag as
-    surfaced. A red flag with no salient words (all stopwords / empty) is
-    treated as not surfaceable and therefore never matched.
+    surfaced. Matching is whole-token (word boundary), so a short salient word
+    like "arm" is not surfaced by "warm". A red flag with no salient words (all
+    stopwords / empty) is treated as not surfaceable and therefore never matched.
     """
     words = _salient_words(red_flag)
     if not words:
         return False
-    return all(word in transcript for word in words)
+    return all(word in transcript_tokens for word in words)
 
 
 def _history_dimension(enc: Encounter, case: TriageCase) -> tuple[ScoreDimension, list[str]]:
@@ -238,11 +273,11 @@ def _history_dimension(enc: Encounter, case: TriageCase) -> tuple[ScoreDimension
         )
         return dim, []
 
-    transcript = _trainee_transcript(enc)
+    transcript_tokens = _transcript_tokens(enc)
     surfaced: list[str] = []
     missed: list[str] = []
     for flag in red_flags:
-        if _red_flag_surfaced(flag, transcript):
+        if _red_flag_surfaced(flag, transcript_tokens):
             surfaced.append(flag)
         else:
             missed.append(flag)
@@ -479,7 +514,7 @@ def score(enc: Encounter, case: TriageCase) -> ScoreReport:
     """
     esi = _build_esi_result(enc, case)
 
-    esi_dim = _esi_dimension(esi)
+    esi_dim = _esi_dimension(esi, decided=enc.esiAssigned is not None)
     history_dim, missed_red_flags = _history_dimension(enc, case)
     vitals_dim = _vitals_dimension(enc, case)
     interventions_dim = _interventions_dimension(enc, case)

@@ -40,6 +40,59 @@ EDSTAYS_FILE = "edstays.csv"
 TRIAGE_FILE = "triage.csv"
 DIAGNOSIS_FILE = "diagnosis.csv"
 
+# Column names that, if present in a source export, indicate the data is NOT
+# de-identified (direct identifiers / HIPAA Safe Harbor identifiers). MIMIC-IV-ED
+# and MIETIC ship without these; their presence means an operator dropped in raw
+# clinical data. We detect them and mark the case ``deidentified = False`` so the
+# registry's guard rejects the whole source rather than silently serving PII.
+_FORBIDDEN_IDENTIFIER_COLUMNS: frozenset[str] = frozenset(
+    {
+        "name",
+        "firstname",
+        "first_name",
+        "lastname",
+        "last_name",
+        "patient_name",
+        "ssn",
+        "social_security_number",
+        "mrn",
+        "medical_record_number",
+        "address",
+        "street_address",
+        "zip",
+        "zipcode",
+        "postal_code",
+        "phone",
+        "phone_number",
+        "telephone",
+        "email",
+        "dob",
+        "date_of_birth",
+        "dod",
+        "date_of_death",
+    }
+)
+
+
+def _deidentification_check(*row_sets: list[dict[str, str]]) -> tuple[bool, str | None]:
+    """Inspect raw CSV columns for direct identifiers.
+
+    Returns ``(True, None)`` when no forbidden identifier columns are present,
+    otherwise ``(False, reason)`` naming the offending columns. This is a positive,
+    code-level verification — the loader must not merely assume the data is clean.
+    """
+    seen_columns: set[str] = set()
+    for rows in row_sets:
+        for raw in rows:
+            for key in raw:
+                seen_columns.add((key or "").strip().lower())
+    offending = sorted(seen_columns & _FORBIDDEN_IDENTIFIER_COLUMNS)
+    if offending:
+        return False, (
+            "source contains direct-identifier column(s): " + ", ".join(offending)
+        )
+    return True, None
+
 
 def has_data(data_dir: Path) -> bool:
     """True if the minimum required CSVs (edstays + triage) are present."""
@@ -47,7 +100,12 @@ def has_data(data_dir: Path) -> bool:
 
 
 def age_band(age: int | None) -> str:
-    """Bucket an exact age into a HIPAA-Safe-Harbor band. Never emit the age."""
+    """Bucket an exact age into a HIPAA-Safe-Harbor band. Never emit the age.
+
+    The bands form a clean, non-overlapping partition:
+    ``0-17``, ``18-24``, then aligned 10-year bins from 25 (``25-34``, ``35-44``,
+    ...), capped at ``85+`` (Safe Harbor aggregates ages 90+).
+    """
     if age is None:
         return "unknown"
     if age >= 85:  # Safe Harbor: ages 90+ are aggregated; cap the top band at 85+.
@@ -56,7 +114,7 @@ def age_band(age: int | None) -> str:
         return "0-17"
     if age < 25:
         return "18-24"
-    low = (age // 10) * 10
+    low = 25 + ((age - 25) // 10) * 10
     return f"{low}-{low + 9}"
 
 
@@ -141,11 +199,17 @@ def load_cases(source: str, data_dir: Path, license_str: str) -> list[TriageCase
         return []
 
     edstays = _read_csv(data_dir / EDSTAYS_FILE)
-    triage_by_stay = _index_by_stay(_read_csv(data_dir / TRIAGE_FILE))
+    triage_rows = _read_csv(data_dir / TRIAGE_FILE)
+    triage_by_stay = _index_by_stay(triage_rows)
     diagnosis_path = data_dir / DIAGNOSIS_FILE
-    diagnoses_by_stay = (
-        _group_diagnoses(_read_csv(diagnosis_path)) if diagnosis_path.is_file() else {}
-    )
+    diagnosis_rows = _read_csv(diagnosis_path) if diagnosis_path.is_file() else []
+    diagnoses_by_stay = _group_diagnoses(diagnosis_rows)
+
+    # Positively verify de-identification from the real source columns. If a
+    # direct identifier is present we still build the cases but stamp
+    # deidentified=False, so the registry guard rejects the whole source.
+    is_deidentified, deid_reason = _deidentification_check(edstays, triage_rows, diagnosis_rows)
+    source_ref_suffix = "" if is_deidentified else f" [NON-DEIDENTIFIED: {deid_reason}]"
 
     cases: list[TriageCase] = []
     for raw_stay in edstays:
@@ -191,17 +255,18 @@ def load_cases(source: str, data_dir: Path, license_str: str) -> list[TriageCase
                 "esi": _esi_from_acuity(triage.get("acuity")),
                 "esiRationale": "Reference acuity from the triage record.",
                 "criticalInterventions": [],
-                "resourcesPredicted": None,
+                # resourcesPredicted omitted: the schema requires an integer when
+                # present, so we leave it absent rather than emit null.
             },
             "outcome": {
                 "disposition": _DISPOSITION_MAP.get(disposition_raw, "UNKNOWN"),
-                "edLengthOfStayMinutes": None,
+                # edLengthOfStayMinutes omitted (integer-or-absent per schema).
                 "diagnosisCategories": diagnoses_by_stay.get(stay_id, []),
             },
             "provenance": {
                 "license": license_str,
-                "deidentified": True,
-                "sourceRef": f"{source} export, stay_id={stay_id}",
+                "deidentified": is_deidentified,
+                "sourceRef": f"{source} export, stay_id={stay_id}{source_ref_suffix}",
             },
         }
         cases.append(TriageCase.model_validate(payload))
