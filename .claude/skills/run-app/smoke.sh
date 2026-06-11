@@ -45,12 +45,14 @@ done
 echo "   backend ready: $(curl -s "${B}/health")"
 
 ok=0
+# Poll via "localhost" (not the 127.0.0.1 literal): Vite's dev server binds IPv6
+# (::1) by default, so a 127.0.0.1 probe would miss it and false-report "not ready".
 for _ in $(seq 1 40); do
-  curl -sf "http://127.0.0.1:${FRONTEND_PORT}/" >/dev/null 2>&1 && { ok=1; break; }
+  curl -sf "http://localhost:${FRONTEND_PORT}/" >/dev/null 2>&1 && { ok=1; break; }
   sleep 0.5
 done
 [ "$ok" = 1 ] || { echo "FAIL: frontend not ready. Log:"; tail -20 /tmp/ed_frontend.log; exit 1; }
-echo "   frontend ready (proxy /api -> $(curl -s "http://127.0.0.1:${FRONTEND_PORT}/api/health"))"
+echo "   frontend ready (proxy /api -> $(curl -s "http://localhost:${FRONTEND_PORT}/api/health"))"
 
 # --- drive a full encounter through the live API (python, robust JSON) ---
 echo "-- driving a full encounter through the live API"

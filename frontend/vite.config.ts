@@ -16,7 +16,10 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: "http://localhost:8000",
+        // Use the IPv4 literal, not "localhost": Node 18+ resolves "localhost" to
+        // IPv6 (::1) first, but uvicorn binds 127.0.0.1 — the mismatch makes every
+        // proxied /api call fail with a 500. Pinning IPv4 keeps the dev proxy working.
+        target: "http://127.0.0.1:8000",
         changeOrigin: true,
       },
     },
