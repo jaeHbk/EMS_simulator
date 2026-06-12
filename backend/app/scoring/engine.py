@@ -47,7 +47,7 @@ from app.models import (
 from app.models.encounter import Role
 from app.models.score import DimensionKey, EsiResult
 from app.models.triage_case import Disposition, RedFlagConcept
-from app.scoring.esi_algorithm import EsiDecision, esi_decision
+from app.scoring.esi_algorithm import EsiDecision, danger_zone_fields, esi_decision
 
 # ---------------------------------------------------------------------------
 # Default dimension weights. Tests pin these exact values, so do not change one
@@ -386,11 +386,27 @@ def _measured_fields(vitals: Vitals) -> set[str]:
 
 
 def _vitals_dimension(enc: Encounter, case: TriageCase) -> ScoreDimension:
-    """Fraction of clinically-expected vitals the trainee measured.
+    """Reward acquiring the expected vitals AND recognizing the dangerous ones.
 
     Expected = vitals that are non-null in ``case.presentation.groundTruthVitals``.
-    Score = |measured ∩ expected| / |expected| (1.0 when nothing is expected).
-    Measuring extra vitals beyond the expected set does not lower the score.
+    Acquisition = |measured ∩ expected| / |expected|.
+
+    Danger-zone vitals are the expected fields whose ground-truth value is in the
+    cited ESI v4 danger zone (the values that should drive acuity UP); they are
+    computed from the SAME thresholds as the decision algorithm via
+    :func:`app.scoring.esi_algorithm.danger_zone_fields`. Catching a dangerous
+    vital is the real clinical skill, so when the case has any danger-zone vital:
+
+        score = 0.5 * acquisition + 0.5 * capture
+        capture = |measured ∩ danger| / |danger|
+
+    Half the credit rides on catching the dangerous values, so missing a
+    danger-zone vital costs more than missing a normal one.
+
+    When the case has NO danger-zone vitals the score is exactly the pure
+    acquisition fraction — byte-identical to the prior behavior. ``1.0`` when
+    nothing is expected. Measuring extra vitals beyond the expected set never
+    lowers the score.
     """
     expected = _measured_fields(case.presentation.groundTruthVitals)
     if not expected:
@@ -403,21 +419,60 @@ def _vitals_dimension(enc: Encounter, case: TriageCase) -> ScoreDimension:
         )
     measured = _measured_fields(enc.measuredVitals)
     acquired = measured & expected
-    score_val = len(acquired) / len(expected)
-    missed = sorted(expected - measured)
-    if missed:
-        detail = (
-            f"Measured {len(acquired)} of {len(expected)} expected vitals. "
-            f"Missed: {', '.join(missed)}."
+    acquisition = len(acquired) / len(expected)
+
+    # Danger-zone vitals among the expected (non-null) ground-truth fields, using
+    # the same cited thresholds as the decision algorithm.
+    danger = (
+        danger_zone_fields(
+            case.presentation.groundTruthVitals.model_dump(),
+            case.demographics.ageBand,
         )
-    else:
-        detail = f"Measured all {len(expected)} expected vitals."
+        & expected
+    )
+
+    missed = sorted(expected - measured)
+    if not danger:
+        # No danger-zone vital: pure acquisition (byte-compatible with the prior
+        # behavior).
+        score_val = acquisition
+        if missed:
+            detail = (
+                f"Measured {len(acquired)} of {len(expected)} expected vitals. "
+                f"Missed: {', '.join(missed)}."
+            )
+        else:
+            detail = f"Measured all {len(expected)} expected vitals."
+        return ScoreDimension(
+            key=DimensionKey.VITALS_ACQUISITION,
+            label=DIMENSION_LABELS[DimensionKey.VITALS_ACQUISITION],
+            score=score_val,
+            weight=DEFAULT_WEIGHTS[DimensionKey.VITALS_ACQUISITION],
+            detail=detail,
+        )
+
+    capture = len(measured & danger) / len(danger)
+    score_val = 0.5 * acquisition + 0.5 * capture
+
+    caught = sorted(measured & danger)
+    missed_danger = sorted(danger - measured)
+    parts = [
+        f"Measured {len(acquired)} of {len(expected)} expected vitals; "
+        f"captured {len(caught)} of {len(danger)} danger-zone vitals "
+        f"(half the credit rides on catching the dangerous values)."
+    ]
+    if caught:
+        parts.append(f"Caught danger-zone: {', '.join(caught)}.")
+    if missed_danger:
+        parts.append(f"Missed danger-zone: {', '.join(missed_danger)}.")
+    if missed:
+        parts.append(f"Missed: {', '.join(missed)}.")
     return ScoreDimension(
         key=DimensionKey.VITALS_ACQUISITION,
         label=DIMENSION_LABELS[DimensionKey.VITALS_ACQUISITION],
         score=score_val,
         weight=DEFAULT_WEIGHTS[DimensionKey.VITALS_ACQUISITION],
-        detail=detail,
+        detail=" ".join(parts),
     )
 
 

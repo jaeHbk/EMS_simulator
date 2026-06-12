@@ -132,6 +132,40 @@ def _danger_zone_vitals(
     return triggered
 
 
+def danger_zone_fields(
+    vitals: dict[str, float | None] | None, age_band: str | None
+) -> set[str]:
+    """The set of vital FIELD KEYS whose value is in the danger zone.
+
+    Uses the SAME cited ESI v4 thresholds and strict boundary semantics as the
+    decision algorithm's :func:`_danger_zone_vitals` (value exactly at the
+    threshold is NOT danger zone), but returns the field keys (e.g.
+    ``{"heartRate", "spo2"}``) rather than human-readable descriptions, so the
+    scoring engine can reward recognizing which measured vitals are dangerous.
+
+    Empty when no vital is in the danger zone or ``vitals`` is ``None``. Missing
+    individual values (``None``) are simply not evaluated.
+    """
+    if not vitals:
+        return set()
+    hr_max, rr_max = _hr_thresholds(age_band)
+    fields: set[str] = set()
+
+    hr = vitals.get("heartRate")
+    if hr is not None and hr > hr_max:
+        fields.add("heartRate")
+
+    rr = vitals.get("respiratoryRate")
+    if rr is not None and rr > rr_max:
+        fields.add("respiratoryRate")
+
+    spo2 = vitals.get("spo2")
+    if spo2 is not None and spo2 < _SPO2_MIN:
+        fields.add("spo2")
+
+    return fields
+
+
 def esi_decision(
     *,
     life_saving: bool,

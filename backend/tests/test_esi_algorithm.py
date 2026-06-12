@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.scoring.esi_algorithm import EsiDecision, esi_decision
+from app.scoring.esi_algorithm import EsiDecision, danger_zone_fields, esi_decision
 
 # ---------------------------------------------------------------------------
 # Step A: immediate life-saving intervention -> ESI 1
@@ -219,6 +219,52 @@ def test_vitals_none_two_or_more_resources_is_esi_3() -> None:
         age_band="25-34",
     )
     assert decision.level == 3
+
+
+# ---------------------------------------------------------------------------
+# danger_zone_fields: the danger-zone vital FIELD KEYS, reusing the same cited
+# thresholds and strict boundary semantics as the decision algorithm.
+# ---------------------------------------------------------------------------
+
+
+def test_danger_zone_fields_adult_high_hr() -> None:
+    assert danger_zone_fields({"heartRate": 110}, "25-34") == {"heartRate"}
+
+
+def test_danger_zone_fields_low_spo2() -> None:
+    assert danger_zone_fields({"spo2": 90}, "25-34") == {"spo2"}
+
+
+def test_danger_zone_fields_high_rr() -> None:
+    assert danger_zone_fields({"respiratoryRate": 24}, "25-34") == {"respiratoryRate"}
+
+
+def test_danger_zone_fields_all_normal_is_empty() -> None:
+    assert (
+        danger_zone_fields({"heartRate": 80, "respiratoryRate": 16, "spo2": 99}, "25-34")
+        == set()
+    )
+
+
+def test_danger_zone_fields_pediatric_hr_not_danger_for_child() -> None:
+    # Adult-danger HR 110 (>100) is NOT danger zone for the pediatric band
+    # ("0-17" -> 5-12 yr bucket, HR > 120), so the set is empty.
+    assert danger_zone_fields({"heartRate": 110}, "0-17") == set()
+
+
+def test_danger_zone_fields_spo2_boundary_is_not_danger() -> None:
+    # SpO2 exactly 92 is the boundary; strict `<` means it is NOT danger zone.
+    assert danger_zone_fields({"spo2": 92}, "25-34") == set()
+
+
+def test_danger_zone_fields_none_vitals_is_empty() -> None:
+    assert danger_zone_fields(None, "25-34") == set()
+
+
+def test_danger_zone_fields_multiple_keys() -> None:
+    assert danger_zone_fields(
+        {"heartRate": 130, "respiratoryRate": 24, "spo2": 90}, "25-34"
+    ) == {"heartRate", "respiratoryRate", "spo2"}
 
 
 # ---------------------------------------------------------------------------

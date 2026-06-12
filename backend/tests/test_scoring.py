@@ -605,9 +605,11 @@ def test_vitals_exact_match() -> None:
 
 
 def test_vitals_partial_measurement() -> None:
-    gt = Vitals(heartRate=110.0, systolicBP=90.0, spo2=88.0, respiratoryRate=24.0)
+    # All-NORMAL ground truth (no danger-zone vital), so this proves the pure
+    # acquisition path is unchanged (byte-compatible): score = measured/expected.
+    gt = Vitals(heartRate=80.0, systolicBP=120.0, spo2=99.0, respiratoryRate=16.0)
     # Measured only 2 of the 4 expected.
-    measured = Vitals(heartRate=110.0, spo2=88.0)
+    measured = Vitals(heartRate=80.0, spo2=99.0)
     case = make_case(ground_truth_vitals=gt)
     enc = make_encounter(measured_vitals=measured)
     report = score(enc, case)
@@ -621,6 +623,120 @@ def test_vitals_extra_measurement_not_penalized() -> None:
     enc = make_encounter(measured_vitals=measured)
     report = score(enc, case)
     assert _dim(report, DimensionKey.VITALS_ACQUISITION).score == 1.0
+
+
+# ---------------------------------------------------------------------------
+# Vitals danger-zone RECOGNITION blend. When the case's ground-truth vitals
+# include danger-zone values (the ones that should drive acuity UP), half the
+# sub-score rides on capturing those dangerous values, so missing a danger-zone
+# vital costs more than missing a normal one. Formula when danger is non-empty:
+#   score = 0.5 * (|measured ∩ expected| / |expected|)
+#         + 0.5 * (|measured ∩ danger|   / |danger|)
+# When the case has NO danger-zone vitals the dimension is byte-identical to the
+# old pure-acquisition score (|measured ∩ expected| / |expected|).
+# ---------------------------------------------------------------------------
+
+
+def _danger_case() -> TriageCase:
+    # Adult; ground truth has 3 danger-zone vitals (HR 130 > 100, RR 24 > 20,
+    # SpO2 90 < 92) and 2 normal expected fields (SBP 120, temp 37).
+    return make_case(
+        ground_truth_vitals=Vitals(
+            heartRate=130.0,
+            respiratoryRate=24.0,
+            spo2=90.0,
+            systolicBP=120.0,
+            temperatureC=37.0,
+        )
+    )
+
+
+def test_vitals_danger_zone_all_measured_is_full_credit() -> None:
+    # Measuring ALL expected (incl. the 3 danger-zone) -> acquisition 1.0 and
+    # capture 1.0 -> blended sub-score 1.0.
+    case = _danger_case()
+    enc = make_encounter(
+        measured_vitals=Vitals(
+            heartRate=130.0,
+            respiratoryRate=24.0,
+            spo2=90.0,
+            systolicBP=120.0,
+            temperatureC=37.0,
+        )
+    )
+    report = score(enc, case)
+    assert _dim(report, DimensionKey.VITALS_ACQUISITION).score == pytest.approx(1.0)
+
+
+def test_vitals_catching_danger_beats_equal_count_of_normal() -> None:
+    # Two trainees each measure the SAME COUNT (3) of expected vitals, but one
+    # captures the danger-zone ones and the other captures only normal vitals.
+    # Catching the danger-zone vitals must score strictly HIGHER -- the new signal.
+    case = _danger_case()
+
+    # Trainee A: the 3 danger-zone fields.
+    enc_danger = make_encounter(
+        measured_vitals=Vitals(heartRate=130.0, respiratoryRate=24.0, spo2=90.0)
+    )
+    # Trainee B: 3 fields too, but only the 2 normal expected + 1 unexpected extra
+    # (glucose is not expected). So measured ∩ expected = {SBP, temp} (count 2),
+    # and measured ∩ danger = {} -> strictly lower.
+    enc_normal = make_encounter(
+        measured_vitals=Vitals(systolicBP=120.0, temperatureC=37.0, glucose=100.0)
+    )
+
+    danger_score = _dim(score(enc_danger, case), DimensionKey.VITALS_ACQUISITION).score
+    normal_score = _dim(score(enc_normal, case), DimensionKey.VITALS_ACQUISITION).score
+    assert danger_score > normal_score
+
+    # Pin the exact blended values.
+    # A: acquisition = 3/5; capture = 3/3 -> 0.5*0.6 + 0.5*1.0 = 0.8.
+    assert danger_score == pytest.approx(0.8)
+    # B: acquisition = 2/5; capture = 0/3 -> 0.5*0.4 + 0.5*0.0 = 0.2.
+    assert normal_score == pytest.approx(0.2)
+
+
+def test_vitals_missing_all_danger_zone_lower_than_capturing_them() -> None:
+    # A trainee who measures the same NUMBER of fields but MISSES every danger-zone
+    # vital scores strictly lower than one who captured the danger-zone ones.
+    case = _danger_case()
+    # Misses all 3 danger fields; measures 3 expected normal-ish: SBP, temp, and...
+    # only 2 normal exist, so add an unexpected extra to keep the count at 3.
+    enc_miss = make_encounter(
+        measured_vitals=Vitals(systolicBP=120.0, temperatureC=37.0, painScore=2.0)
+    )
+    enc_catch = make_encounter(
+        measured_vitals=Vitals(heartRate=130.0, respiratoryRate=24.0, spo2=90.0)
+    )
+    miss = _dim(score(enc_miss, case), DimensionKey.VITALS_ACQUISITION).score
+    catch = _dim(score(enc_catch, case), DimensionKey.VITALS_ACQUISITION).score
+    assert miss < catch
+
+
+def test_vitals_no_danger_zone_is_pure_acquisition_byte_compatible() -> None:
+    # All-normal ground truth -> no danger-zone vitals -> sub-score is EXACTLY the
+    # pure acquisition fraction (byte-compatible with the pre-blend behavior).
+    gt = Vitals(heartRate=80.0, systolicBP=120.0, spo2=99.0, respiratoryRate=16.0)
+    measured = Vitals(heartRate=80.0, spo2=99.0)  # 2 of 4 expected
+    case = make_case(ground_truth_vitals=gt)
+    enc = make_encounter(measured_vitals=measured)
+    report = score(enc, case)
+    acquired, expected = 2, 4
+    assert _dim(report, DimensionKey.VITALS_ACQUISITION).score == pytest.approx(
+        acquired / expected
+    )
+
+
+def test_vitals_danger_detail_names_caught_and_missed() -> None:
+    # The detail string teaches by naming danger-zone vitals caught/missed.
+    case = _danger_case()
+    enc = make_encounter(
+        measured_vitals=Vitals(heartRate=130.0, systolicBP=120.0)
+    )  # caught HR (danger), missed RR + SpO2 (danger)
+    detail = _dim(score(enc, case), DimensionKey.VITALS_ACQUISITION).detail
+    assert "danger" in detail.lower()
+    assert "heartRate" in detail
+    assert "respiratoryRate" in detail and "spo2" in detail
 
 
 # ---------------------------------------------------------------------------
