@@ -5,9 +5,11 @@
 
 import { vi } from "vitest";
 import type {
+  AnalyticsPoint,
   Encounter,
   ScoreReport,
   Stage,
+  TraineeAnalytics,
   TriageDirection,
   Vitals,
 } from "../api/contract";
@@ -77,6 +79,42 @@ export function makeScoreReport(
     narrative: "",
     missedRedFlags: [],
     ...overrides,
+  };
+}
+
+export function makeAnalyticsPoint(
+  direction: TriageDirection = "CORRECT",
+  overrides: Partial<AnalyticsPoint> = {},
+): AnalyticsPoint {
+  const assigned = direction === "UNDER_TRIAGE" ? 4 : direction === "OVER_TRIAGE" ? 1 : 2;
+  return {
+    encounterId: "enc-1",
+    startedAt: "2026-06-09T00:00:00Z",
+    triageDirection: direction,
+    esiAssigned: assigned,
+    esiExpert: 2,
+    overallPercent: direction === "CORRECT" ? 88 : 42,
+    ...overrides,
+  };
+}
+
+export function makeAnalytics(
+  overrides: Partial<TraineeAnalytics> = {},
+): TraineeAnalytics {
+  const history = overrides.history ?? [
+    makeAnalyticsPoint("UNDER_TRIAGE", { encounterId: "enc-1" }),
+    makeAnalyticsPoint("OVER_TRIAGE", { encounterId: "enc-2" }),
+    makeAnalyticsPoint("CORRECT", { encounterId: "enc-3" }),
+  ];
+  return {
+    traineeId: "trainee-fixture",
+    totalEncounters: history.length,
+    underTriageRate: 1 / 3,
+    overTriageRate: 1 / 3,
+    correctRate: 1 / 3,
+    meanLevelsOffAbs: 1,
+    ...overrides,
+    history,
   };
 }
 

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiClient } from "../api/client";
-import type { Encounter, Stage } from "../api/contract";
+import type { Encounter, Stage, TraineeAnalytics } from "../api/contract";
 
 // Mock the client module so the singleton store (which imports the real client)
 // never touches `fetch`. Each fn is a vi.fn we can program per test.
@@ -18,6 +18,7 @@ vi.mock("../api/client", async (importOriginal) => {
       postEsi: vi.fn(),
       postInterventions: vi.fn(),
       postFeedback: vi.fn(),
+      getAnalytics: vi.fn(),
     },
     createEncounter: vi.fn(),
     getEncounter: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock("../api/client", async (importOriginal) => {
     postEsi: vi.fn(),
     postInterventions: vi.fn(),
     postFeedback: vi.fn(),
+    getAnalytics: vi.fn(),
   };
 });
 
@@ -72,6 +74,22 @@ function makeMockClient(): { [K in keyof ApiClient]: ReturnType<typeof vi.fn> } 
     postEsi: vi.fn(),
     postInterventions: vi.fn(),
     postFeedback: vi.fn(),
+    getAnalytics: vi.fn(),
+  };
+}
+
+function makeAnalytics(
+  overrides: Partial<TraineeAnalytics> = {},
+): TraineeAnalytics {
+  return {
+    traineeId: "trainee-test",
+    totalEncounters: 2,
+    underTriageRate: 0.5,
+    overTriageRate: 0,
+    correctRate: 0.5,
+    meanLevelsOffAbs: 0.5,
+    history: [],
+    ...overrides,
   };
 }
 
@@ -84,7 +102,12 @@ describe("encounterStore (injected mock client)", () => {
 
     await store.getState().createEncounter(["mimic_demo"]);
 
-    expect(client.createEncounter).toHaveBeenCalledWith(["mimic_demo"]);
+    // The store passes the sources plus the per-browser trainee id (so the
+    // encounter is attributed to this learner's progress analytics).
+    expect(client.createEncounter).toHaveBeenCalledWith(
+      ["mimic_demo"],
+      expect.stringMatching(/^trainee-/),
+    );
     expect(store.getState().encounter).toEqual(enc);
     expect(store.getState().loading).toBe(false);
     expect(store.getState().error).toBeNull();
@@ -192,6 +215,53 @@ describe("encounterStore (injected mock client)", () => {
 
     expect(client.advance).not.toHaveBeenCalled();
     expect(store.getState().error).toBe("No active encounter.");
+  });
+
+  it("fetchAnalytics sets analytics from the client (null until fetched)", async () => {
+    const client = makeMockClient();
+    const analytics = makeAnalytics();
+    client.getAnalytics.mockResolvedValue(analytics);
+    const store = createEncounterStore(client as unknown as ApiClient);
+
+    expect(store.getState().analytics).toBeNull();
+
+    await store.getState().fetchAnalytics();
+
+    expect(client.getAnalytics).toHaveBeenCalledWith(
+      expect.stringMatching(/^trainee-/),
+    );
+    expect(store.getState().analytics).toEqual(analytics);
+  });
+
+  it("failing getAnalytics leaves the store usable and never throws", async () => {
+    const client = makeMockClient();
+    const enc = makeEncounter();
+    client.createEncounter.mockResolvedValue(enc);
+    client.getAnalytics.mockRejectedValue(new ApiError("analytics down", 500));
+    const store = createEncounterStore(client as unknown as ApiClient);
+    await store.getState().createEncounter();
+
+    // The analytics failure is swallowed: no throw, no error banner, encounter
+    // and analytics untouched.
+    await expect(store.getState().fetchAnalytics()).resolves.toBeUndefined();
+
+    expect(store.getState().analytics).toBeNull();
+    expect(store.getState().error).toBeNull();
+    expect(store.getState().encounter).toEqual(enc);
+  });
+
+  it("fetchAnalytics keeps the prior analytics when a later fetch fails", async () => {
+    const client = makeMockClient();
+    const analytics = makeAnalytics({ totalEncounters: 3 });
+    client.getAnalytics.mockResolvedValueOnce(analytics);
+    const store = createEncounterStore(client as unknown as ApiClient);
+    await store.getState().fetchAnalytics();
+    expect(store.getState().analytics).toEqual(analytics);
+
+    client.getAnalytics.mockRejectedValueOnce(new ApiError("boom", 500));
+    await store.getState().fetchAnalytics();
+    // Last successful value is preserved.
+    expect(store.getState().analytics).toEqual(analytics);
   });
 
   it("clearError and reset restore state", async () => {

@@ -3,11 +3,14 @@
 // web-stages owner via <WorkflowRouter/>; this shell only frames it and exposes
 // the store-backed "start" action.
 
+import { useEffect } from "react";
 import { Activity, ClipboardList, ShieldAlert, X } from "lucide-react";
 
 import { WorkflowRouter } from "./workflow/WorkflowRouter";
 import { PatientRail } from "./components/PatientRail";
+import { ProgressPanel } from "./components/ProgressPanel";
 import {
+  useAnalytics,
   useEncounter,
   useEncounterActions,
   useError,
@@ -30,9 +33,21 @@ export default function App(): JSX.Element {
   const encounter = useEncounter();
   const loading = useLoading();
   const error = useError();
-  const { createEncounter, clearError } = useEncounterActions();
+  const analytics = useAnalytics();
+  const { createEncounter, fetchAnalytics, clearError } = useEncounterActions();
 
   const startLabel = encounter ? "Start new encounter" : "Start encounter";
+
+  // Refresh the learning curve on mount and whenever a case completes scoring
+  // (FEEDBACK) or the trainee returns to the empty state. `stage` (a primitive)
+  // is the dependency so the fetch fires once per relevant transition, not on
+  // every in-stage re-render.
+  const stage = encounter?.stage ?? null;
+  useEffect(() => {
+    if (stage === null || stage === "FEEDBACK") {
+      void fetchAnalytics();
+    }
+  }, [stage, fetchAnalytics]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -99,16 +114,19 @@ export default function App(): JSX.Element {
             {encounter ? (
               <WorkflowRouter />
             ) : (
-              <Card>
-                <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <ClipboardList className="h-6 w-6" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    No active encounter. Start one to begin triage training.
-                  </p>
-                </CardContent>
-              </Card>
+              <div className="space-y-6">
+                <Card>
+                  <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <ClipboardList className="h-6 w-6" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      No active encounter. Start one to begin triage training.
+                    </p>
+                  </CardContent>
+                </Card>
+                <ProgressPanel analytics={analytics} />
+              </div>
             )}
           </section>
         </div>

@@ -9,7 +9,8 @@
 import { create } from "zustand";
 
 import { ApiError, apiClient, type ApiClient } from "../api/client";
-import type { Encounter, Stage } from "../api/contract";
+import type { Encounter, Stage, TraineeAnalytics } from "../api/contract";
+import { getTraineeId } from "../lib/traineeId";
 
 /** The serializable slice of store state. */
 export interface EncounterState {
@@ -19,6 +20,8 @@ export interface EncounterState {
   loading: boolean;
   /** Last action error message, or null. Cleared at the start of each action. */
   error: string | null;
+  /** This browser's trainee learning-curve, or null until first fetched. */
+  analytics: TraineeAnalytics | null;
 }
 
 /** Async actions. Each wraps a client call and adopts its returned Encounter. */
@@ -31,6 +34,12 @@ export interface EncounterActions {
   assignEsi: (esi: number) => Promise<void>;
   orderInterventions: (items: string[]) => Promise<void>;
   requestFeedback: () => Promise<void>;
+  /**
+   * Fetch this browser's trainee analytics and set `analytics` on success. A
+   * failure is swallowed (it must never clobber the encounter or throw) — the
+   * prior analytics value is left intact so the panel keeps showing last data.
+   */
+  fetchAnalytics: () => Promise<void>;
   /** Manually clear the current error (e.g. when dismissing a banner). */
   clearError: () => void;
   /** Reset the store to its empty initial state. */
@@ -43,6 +52,7 @@ const initialState: EncounterState = {
   encounter: null,
   loading: false,
   error: null,
+  analytics: null,
 };
 
 /** Normalize any thrown value into a user-facing message. */
@@ -84,7 +94,8 @@ export function createEncounterStore(client: ApiClient = apiClient) {
     return {
       ...initialState,
 
-      createEncounter: (sources) => run(() => client.createEncounter(sources)),
+      createEncounter: (sources) =>
+        run(() => client.createEncounter(sources, getTraineeId())),
 
       refresh: () => run(() => client.getEncounter(requireId())),
 
@@ -100,6 +111,16 @@ export function createEncounterStore(client: ApiClient = apiClient) {
         run(() => client.postInterventions(requireId(), items)),
 
       requestFeedback: () => run(() => client.postFeedback(requireId())),
+
+      fetchAnalytics: async () => {
+        try {
+          const analytics = await client.getAnalytics(getTraineeId());
+          set({ analytics });
+        } catch {
+          // Analytics is a secondary read: never surface as an action error or
+          // touch the encounter. Leave the prior `analytics` value intact.
+        }
+      },
 
       clearError: () => set({ error: null }),
 
@@ -127,6 +148,10 @@ export const useLoading = (): boolean => useEncounterStore((s) => s.loading);
 /** Current error message, or null. */
 export const useError = (): string | null => useEncounterStore((s) => s.error);
 
+/** This browser's trainee analytics, or null until first fetched. */
+export const useAnalytics = (): TraineeAnalytics | null =>
+  useEncounterStore((s) => s.analytics);
+
 /** All store actions, as a stable bag of functions. */
 export const useEncounterActions = (): EncounterActions =>
   useEncounterStore(selectActions);
@@ -141,6 +166,7 @@ function selectActions(s: EncounterStore): EncounterActions {
     assignEsi: s.assignEsi,
     orderInterventions: s.orderInterventions,
     requestFeedback: s.requestFeedback,
+    fetchAnalytics: s.fetchAnalytics,
     clearError: s.clearError,
     reset: s.reset,
   };

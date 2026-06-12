@@ -9,7 +9,7 @@
 // Nothing here requires a network or API key to *exist* — these functions are
 // only invoked when the user acts, and they degrade gracefully via ApiError.
 
-import type { Encounter, Stage } from "./contract";
+import type { Encounter, Stage, TraineeAnalytics } from "./contract";
 
 /** Base path for all backend routes. Vite proxies "/api" to the FastAPI server. */
 export const API_BASE = "/api";
@@ -91,9 +91,17 @@ function postJson(body: unknown): RequestInit {
  * POST /api/encounters — picks a case and creates a fresh encounter (CASE_LOAD).
  * @param sources Optional list of source ids to draw the case from; when omitted
  *   the backend uses its configured default sources.
+ * @param traineeId Optional opaque per-browser learner id; when provided it is
+ *   sent so the encounter is attributed to the trainee's progress analytics.
  */
-export function createEncounter(sources?: string[]): Promise<Encounter> {
-  return request<Encounter>("/encounters", postJson(sources ? { sources } : {}));
+export function createEncounter(
+  sources?: string[],
+  traineeId?: string,
+): Promise<Encounter> {
+  const body: { sources?: string[]; traineeId?: string } = {};
+  if (sources) body.sources = sources;
+  if (traineeId) body.traineeId = traineeId;
+  return request<Encounter>("/encounters", postJson(body));
 }
 
 /** GET /api/encounters/{id} — fetch the current encounter state. */
@@ -161,6 +169,17 @@ export function postFeedback(encounterId: string): Promise<Encounter> {
   );
 }
 
+/**
+ * GET /api/analytics/{traineeId} — deterministic per-trainee learning-curve
+ * metrics. An unknown trainee yields a zeroed report (not a 404). The traineeId
+ * is an opaque analytics key, not an identity or credential.
+ */
+export function getAnalytics(traineeId: string): Promise<TraineeAnalytics> {
+  return request<TraineeAnalytics>(
+    `/analytics/${encodeURIComponent(traineeId)}`,
+  );
+}
+
 /** Convenience grouping so the store can be handed a single client object in tests. */
 export const apiClient = {
   createEncounter,
@@ -171,6 +190,7 @@ export const apiClient = {
   postEsi,
   postInterventions,
   postFeedback,
+  getAnalytics,
 };
 
 export type ApiClient = typeof apiClient;
