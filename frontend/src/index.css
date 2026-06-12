@@ -91,3 +91,44 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+/* Print-to-PDF debrief. The Feedback stage wraps the chief complaint, score report,
+   and narrative in `.printable`; everything else (app header, disclaimer bar, error
+   banner, ProgressPanel, step indicator, patient rail, and the Feedback action
+   buttons) is app chrome we don't want on paper. Rather than enumerate every chrome
+   element across files we can't edit, hide the whole page and re-reveal only the
+   printable region, then lift it to the top of the page. `.print-hide` is an explicit
+   escape hatch for chrome that lives *inside* the printable subtree (the action row). */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .printable,
+  .printable * {
+    visibility: visible;
+  }
+
+  .printable {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 1.5rem;
+    width: 100%;
+    background: #fff;
+    color: #000;
+  }
+
+  /* Chrome nested inside the printable region (e.g. the action buttons) stays hidden. */
+  .print-hide,
+  .print-hide * {
+    visibility: hidden !important;
+  }
+
+  /* Avoid awkward page breaks through a card / dimension row. */
+  .printable .score-card,
+  .printable .feedback__narrative,
+  .printable .score-card__dimension {
+    break-inside: avoid;
+  }
+}
