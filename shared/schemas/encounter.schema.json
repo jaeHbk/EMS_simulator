@@ -46,6 +46,7 @@
       ]
     },
     "startedAt": { "type": ["string", "null"], "format": "date-time" },
-    "completedAt": { "type": ["string", "null"], "format": "date-time" }
+    "completedAt": { "type": ["string", "null"], "format": "date-time" },
+    "traineeId": { "type": ["string", "null"], "description": "Opaque per-browser learner id for progress analytics. Not an identity or credential." }
   }
 }

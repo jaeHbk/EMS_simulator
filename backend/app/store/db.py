@@ -15,10 +15,16 @@ plain filesystem path (or ``:memory:``) for stdlib ``sqlite3``.
 from __future__ import annotations
 
 import sqlite3
+from datetime import UTC, datetime
 
 from app.models import Encounter
 
-__all__ = ["get_encounter", "init_db", "save_encounter"]
+__all__ = [
+    "get_encounter",
+    "init_db",
+    "list_encounters_by_trainee",
+    "save_encounter",
+]
 
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS encounters (
@@ -115,3 +121,26 @@ def get_encounter(encounter_id: str) -> Encounter:
     if row is None:
         raise KeyError(f"No encounter with id {encounter_id!r}.")
     return Encounter.model_validate_json(row[0])
+
+
+def list_encounters_by_trainee(trainee_id: str) -> list[Encounter]:
+    """Return all stored encounters for ``trainee_id``, oldest first.
+
+    This is a demo-scale full-table scan: every encounter is deserialized and
+    filtered in Python on ``traineeId``. Results are ordered by ``startedAt``
+    ascending so analytics can build a chronological learning curve. Encounters
+    with a ``None`` ``startedAt`` sort *first* (treated as the earliest), keeping
+    the ordering total and deterministic.
+    """
+    conn = _require_conn()
+    rows = conn.execute("SELECT payload FROM encounters").fetchall()
+    matches = [
+        enc
+        for enc in (Encounter.model_validate_json(row[0]) for row in rows)
+        if enc.traineeId == trainee_id
+    ]
+    # datetime.min is naive; the stored startedAt values are tz-aware, so use a
+    # tz-aware floor for None to keep all comparisons valid.
+    earliest = datetime.min.replace(tzinfo=UTC)
+    matches.sort(key=lambda enc: enc.startedAt or earliest)
+    return matches

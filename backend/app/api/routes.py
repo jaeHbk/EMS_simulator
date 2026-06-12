@@ -33,8 +33,9 @@ from app import llm, scoring, sim, store
 from app.config import Settings, get_settings
 from app.data import registry as data
 from app.data.registry import DeidentificationError, UnknownSourceError
-from app.models import Encounter, HistoryTurn, Stage, TriageCase
+from app.models import Encounter, HistoryTurn, Stage, TraineeAnalytics, TriageCase
 from app.models.encounter import Role
+from app.scoring.analytics import compute_analytics
 from app.sim.machine import StageError
 
 router = APIRouter(prefix="/api", tags=["encounters"])
@@ -65,6 +66,13 @@ class CreateEncounterBody(_StrictBody):
     seed: int | None = Field(
         default=None,
         description="Seed the case-selection RNG for a reproducible pick.",
+    )
+    traineeId: str | None = Field(
+        default=None,
+        description=(
+            "Opaque per-browser learner id to attach to this encounter for "
+            "progress analytics. Not an identity or credential."
+        ),
     )
 
 
@@ -148,10 +156,16 @@ def _pick_case(body: CreateEncounterBody, settings: Settings) -> TriageCase:
 # ---------------------------------------------------------------------------
 @router.post("/encounters", response_model=Encounter)
 def create_encounter(body: CreateEncounterBody | None = None) -> Encounter:
-    """Pick a case, create a fresh encounter at CASE_LOAD, persist, and return it."""
+    """Pick a case, create a fresh encounter at CASE_LOAD, persist, and return it.
+
+    An optional ``traineeId`` (opaque per-browser analytics key — not identity)
+    is attached so the encounter can later be aggregated into that trainee's
+    learning-curve analytics.
+    """
     settings = get_settings()
-    case = _pick_case(body or CreateEncounterBody(), settings)
-    encounter = sim.create_encounter(case)
+    create_body = body or CreateEncounterBody()
+    case = _pick_case(create_body, settings)
+    encounter = sim.create_encounter(case, trainee_id=create_body.traineeId)
     store.save_encounter(encounter)
     return encounter
 
@@ -292,3 +306,17 @@ async def post_feedback(encounter_id: str) -> Encounter:
     completed.scoreReport = report
     store.save_encounter(completed)
     return completed
+
+
+@router.get("/analytics/{trainee_id}", response_model=TraineeAnalytics)
+def get_trainee_analytics(trainee_id: str) -> TraineeAnalytics:
+    """Per-trainee learning-curve metrics, computed deterministically from stored
+    ScoreReports.
+
+    ``trainee_id`` is an OPAQUE per-browser analytics key, not an identity or
+    credential. An unknown/empty trainee returns a zeroed report (not a 404).
+    Expert ESI appears here legitimately: every contributing encounter is at the
+    FEEDBACK stage, where expert labels are already revealed via scoring.
+    """
+    encounters = store.list_encounters_by_trainee(trainee_id)
+    return compute_analytics(trainee_id, encounters)

@@ -76,6 +76,7 @@ def _assert_no_expert_leak(body: dict) -> None:
         "scoreReport",
         "startedAt",
         "completedAt",
+        "traineeId",
     }
     assert set(body) <= allowed, f"unexpected keys in encounter: {set(body) - allowed}"
     # Defensive: an esiRationale string would be the most likely leak vector.
@@ -254,3 +255,127 @@ def test_invalid_esi_value_is_422(client: TestClient) -> None:
     client.post(f"/api/encounters/{eid}/advance", json={"to": "ESI_ASSIGNMENT"})
     resp = client.post(f"/api/encounters/{eid}/esi", json={"esi": 9})
     assert resp.status_code == 422, resp.text
+
+
+# ---------------------------------------------------------------------------
+# Per-trainee analytics: traineeId on the encounter + GET /api/analytics/{id}.
+# The expert ESI of the bundled synthetic case `abdominal-pain-007` is 3, so we
+# force each triage direction deterministically by the ESI the trainee assigns:
+#   assign 3 -> CORRECT, assign 4 -> UNDER_TRIAGE, assign 2 -> OVER_TRIAGE
+# (UNDER_TRIAGE = a higher, less-acute number than expert — the headline failure).
+# ---------------------------------------------------------------------------
+_FORCED_CASE = "synthetic:abdominal-pain-007"  # expert ESI == 3
+
+
+def _walk_to_feedback_with_esi(
+    client: TestClient, *, trainee_id: str, esi: int
+) -> dict:
+    """Create an encounter for the fixed case under ``trainee_id`` and walk it to
+    FEEDBACK, assigning ``esi``. Returns the final FEEDBACK encounter body."""
+    create = client.post(
+        "/api/encounters", json={"caseId": _FORCED_CASE, "traineeId": trainee_id}
+    )
+    assert create.status_code == 200, create.text
+    enc = create.json()
+    # The opaque analytics key round-trips on the wire format.
+    assert enc["traineeId"] == trainee_id
+    eid = enc["encounterId"]
+
+    client.post(f"/api/encounters/{eid}/advance", json={"to": "HISTORY"})
+    client.post(f"/api/encounters/{eid}/history", json={"text": "What brings you in?"})
+    client.post(f"/api/encounters/{eid}/advance", json={"to": "VITALS"})
+    client.post(f"/api/encounters/{eid}/vitals", json={"fields": ["heartRate"]})
+    client.post(f"/api/encounters/{eid}/advance", json={"to": "ESI_ASSIGNMENT"})
+    client.post(f"/api/encounters/{eid}/esi", json={"esi": esi})
+    client.post(f"/api/encounters/{eid}/advance", json={"to": "INTERVENTIONS"})
+    client.post(f"/api/encounters/{eid}/interventions", json={"items": ["IV_ACCESS"]})
+    resp = client.post(f"/api/encounters/{eid}/feedback")
+    assert resp.status_code == 200, resp.text
+    return resp.json()
+
+
+def test_trainee_analytics_learning_curve(client: TestClient) -> None:
+    """Three encounters under one traineeId yield one of each triage direction,
+    and the analytics endpoint aggregates them deterministically."""
+    trainee = "trainee-abc"
+
+    correct_enc = _walk_to_feedback_with_esi(client, trainee_id=trainee, esi=3)
+    under_enc = _walk_to_feedback_with_esi(client, trainee_id=trainee, esi=4)
+    over_enc = _walk_to_feedback_with_esi(client, trainee_id=trainee, esi=2)
+
+    # Sanity: directions were forced as intended (FEEDBACK reveals expert labels).
+    assert correct_enc["scoreReport"]["esi"]["triageDirection"] == "CORRECT"
+    assert under_enc["scoreReport"]["esi"]["triageDirection"] == "UNDER_TRIAGE"
+    assert over_enc["scoreReport"]["esi"]["triageDirection"] == "OVER_TRIAGE"
+
+    resp = client.get(f"/api/analytics/{trainee}")
+    assert resp.status_code == 200, resp.text
+    analytics = resp.json()
+
+    assert analytics["traineeId"] == trainee
+    assert analytics["totalEncounters"] == 3
+    # One of each direction => each rate is 1/3 and they sum to 1.0.
+    assert analytics["correctRate"] == pytest.approx(1 / 3)
+    assert analytics["underTriageRate"] == pytest.approx(1 / 3)
+    assert analytics["overTriageRate"] == pytest.approx(1 / 3)
+    assert (
+        analytics["underTriageRate"]
+        + analytics["overTriageRate"]
+        + analytics["correctRate"]
+        == pytest.approx(1.0)
+    )
+    # |levelsOff| is 0 (correct), 1 (under), 1 (over) -> mean 2/3.
+    assert analytics["meanLevelsOffAbs"] == pytest.approx(2 / 3)
+
+    # History has one point per scored encounter, in chronological (startedAt asc)
+    # order — which here is creation order: CORRECT, UNDER_TRIAGE, OVER_TRIAGE.
+    history = analytics["history"]
+    assert len(history) == 3
+    assert [p["triageDirection"] for p in history] == [
+        "CORRECT",
+        "UNDER_TRIAGE",
+        "OVER_TRIAGE",
+    ]
+    assert [p["esiAssigned"] for p in history] == [3, 4, 2]
+    assert all(p["esiExpert"] == 3 for p in history)
+    assert all(0.0 <= p["overallPercent"] <= 100.0 for p in history)
+    # startedAt is monotonically non-decreasing (the store sorts ascending).
+    starts = [p["startedAt"] for p in history]
+    assert starts == sorted(starts)
+
+
+def test_unknown_trainee_returns_zeroed_analytics(client: TestClient) -> None:
+    """An unknown/empty trainee yields a zeroed report, never a 404."""
+    resp = client.get("/api/analytics/nobody-here")
+    assert resp.status_code == 200, resp.text
+    analytics = resp.json()
+    assert analytics == {
+        "traineeId": "nobody-here",
+        "totalEncounters": 0,
+        "underTriageRate": 0.0,
+        "overTriageRate": 0.0,
+        "correctRate": 0.0,
+        "meanLevelsOffAbs": 0.0,
+        "history": [],
+    }
+
+
+def test_analytics_ignores_in_progress_encounters(client: TestClient) -> None:
+    """Only FEEDBACK-stage, scored encounters count toward analytics."""
+    trainee = "trainee-mixed"
+    # One completed (scored) encounter.
+    _walk_to_feedback_with_esi(client, trainee_id=trainee, esi=3)
+    # One in-progress encounter for the same trainee (left at CASE_LOAD).
+    create = client.post(
+        "/api/encounters", json={"caseId": _FORCED_CASE, "traineeId": trainee}
+    )
+    assert create.status_code == 200
+    assert create.json()["stage"] == "CASE_LOAD"
+
+    resp = client.get(f"/api/analytics/{trainee}")
+    assert resp.status_code == 200
+    analytics = resp.json()
+    # The unscored encounter is excluded; only the completed one is counted.
+    assert analytics["totalEncounters"] == 1
+    assert len(analytics["history"]) == 1
+    assert analytics["correctRate"] == pytest.approx(1.0)

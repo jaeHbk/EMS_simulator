@@ -103,4 +103,32 @@ export interface Encounter {
   scoreReport: ScoreReport | null;
   startedAt: string | null;
   completedAt: string | null;
+  // Opaque per-browser learner id for progress analytics. Not an identity or
+  // credential. Optional on the wire (omitted by producers that don't set it),
+  // mirroring its absence from the schema's `required` list and the Pydantic
+  // model's `None` default.
+  traineeId?: string | null;
+}
+
+// One scored encounter's contribution to a trainee's learning curve.
+export interface AnalyticsPoint {
+  encounterId: string;
+  startedAt: string | null;
+  triageDirection: TriageDirection;
+  esiAssigned: number | null;
+  esiExpert: number;
+  overallPercent: number;
+}
+
+// The wire format: GET /api/analytics/{traineeId}. Deterministic per-trainee
+// learning-curve metrics. An unknown trainee yields a zeroed report (not a 404).
+// traineeId is an opaque analytics key, not an identity or credential.
+export interface TraineeAnalytics {
+  traineeId: string;
+  totalEncounters: number;
+  underTriageRate: number; // 0..1
+  overTriageRate: number; // 0..1
+  correctRate: number; // 0..1
+  meanLevelsOffAbs: number;
+  history: AnalyticsPoint[];
 }

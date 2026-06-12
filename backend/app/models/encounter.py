@@ -66,3 +66,7 @@ class Encounter(_Strict):
     scoreReport: ScoreReport | None = None
     startedAt: datetime | None = None
     completedAt: datetime | None = None
+    # Opaque per-browser learner id for progress analytics. NOT an identity or
+    # credential — purely an analytics grouping key. Optional/nullable so existing
+    # producers (and the wire format) are unaffected when it is unset.
+    traineeId: str | None = None

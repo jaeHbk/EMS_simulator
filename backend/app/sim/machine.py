@@ -64,12 +64,16 @@ def _require_stage(enc: Encounter, expected: Stage, action: str) -> None:
         )
 
 
-def create_encounter(case: TriageCase) -> Encounter:
+def create_encounter(case: TriageCase, trainee_id: str | None = None) -> Encounter:
     """Create a fresh Encounter for ``case`` at the CASE_LOAD stage.
 
     Copies the chief complaint and stamps ``startedAt``. Critically, it copies
     NOTHING from ``case.expert`` (or the hidden history detail) onto the Encounter
     — those stay server-side until FEEDBACK and are surfaced only via scoring.
+
+    ``trainee_id`` is an OPAQUE per-browser learner id used only to group
+    encounters for progress analytics — it is not an identity or credential.
+    When unset (the default), the encounter has no trainee association.
     """
     return Encounter(
         encounterId=str(uuid.uuid4()),
@@ -77,6 +81,7 @@ def create_encounter(case: TriageCase) -> Encounter:
         stage=Stage.CASE_LOAD,
         chiefComplaint=case.presentation.chiefComplaint,
         startedAt=_now(),
+        traineeId=trainee_id,
     )
 
 

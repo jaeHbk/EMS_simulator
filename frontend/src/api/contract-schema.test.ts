@@ -18,7 +18,7 @@ import Ajv, { type AnySchema } from "ajv";
 import addFormats from "ajv-formats";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import type { Encounter, ScoreReport } from "./contract";
+import type { Encounter, ScoreReport, TraineeAnalytics } from "./contract";
 
 // Vitest runs with process.cwd() at the frontend/ dir, and shared/schemas is a
 // sibling of frontend/. (Resolved from cwd rather than import.meta.url, since the
@@ -39,6 +39,8 @@ beforeAll(() => {
   ajv.addSchema(loadSchema("triage-case.schema.json"));
   ajv.addSchema(loadSchema("score-report.schema.json"));
   ajv.addSchema(loadSchema("encounter.schema.json"));
+  // The analytics schema is standalone (no $refs), so order is irrelevant.
+  ajv.addSchema(loadSchema("analytics.schema.json"));
 });
 
 /** Validate `instance` against the schema with the given $id; assert no errors. */
@@ -56,6 +58,7 @@ function validate(schemaId: string, instance: unknown): void {
 
 const ENCOUNTER_ID = "https://ed-triage-trainer/schemas/encounter.schema.json";
 const SCORE_REPORT_ID = "https://ed-triage-trainer/schemas/score-report.schema.json";
+const ANALYTICS_ID = "https://ed-triage-trainer/schemas/analytics.schema.json";
 
 // --- Representative + edge-case fixtures, typed against contract.ts ---
 
@@ -130,6 +133,7 @@ const FULL_ENCOUNTER: Encounter = {
   scoreReport: FULL_SCORE_REPORT,
   startedAt: "2026-06-09T00:00:00Z",
   completedAt: "2026-06-09T00:05:00Z",
+  traineeId: "trainee-abc",
 };
 
 // A freshly-created encounter at CASE_LOAD: nulls where the model defaults to None.
@@ -155,6 +159,54 @@ const FRESH_ENCOUNTER: Encounter = {
   scoreReport: null,
   startedAt: "2026-06-09T00:00:00Z",
   completedAt: null,
+  traineeId: null,
+};
+
+// A populated learning-curve report (one of each triage direction), and a zeroed
+// report for an unknown trainee — the edge case the endpoint returns instead of 404.
+const FULL_ANALYTICS: TraineeAnalytics = {
+  traineeId: "trainee-abc",
+  totalEncounters: 3,
+  underTriageRate: 1 / 3,
+  overTriageRate: 1 / 3,
+  correctRate: 1 / 3,
+  meanLevelsOffAbs: 2 / 3,
+  history: [
+    {
+      encounterId: "enc-1",
+      startedAt: "2026-06-09T00:00:00Z",
+      triageDirection: "CORRECT",
+      esiAssigned: 3,
+      esiExpert: 3,
+      overallPercent: 92.5,
+    },
+    {
+      encounterId: "enc-2",
+      startedAt: "2026-06-09T00:05:00Z",
+      triageDirection: "UNDER_TRIAGE",
+      esiAssigned: 4,
+      esiExpert: 3,
+      overallPercent: 41.0,
+    },
+    {
+      encounterId: "enc-3",
+      startedAt: null,
+      triageDirection: "OVER_TRIAGE",
+      esiAssigned: 2,
+      esiExpert: 3,
+      overallPercent: 68.0,
+    },
+  ],
+};
+
+const ZEROED_ANALYTICS: TraineeAnalytics = {
+  traineeId: "nobody-here",
+  totalEncounters: 0,
+  underTriageRate: 0,
+  overTriageRate: 0,
+  correctRate: 0,
+  meanLevelsOffAbs: 0,
+  history: [],
 };
 
 describe("contract.ts conforms to shared JSON schemas", () => {
@@ -179,5 +231,18 @@ describe("contract.ts conforms to shared JSON schemas", () => {
     const { overallPercent: _omit, ...bad } = FULL_SCORE_REPORT;
     void _omit;
     expect(() => validate(SCORE_REPORT_ID, bad)).toThrow(/schema violations/);
+  });
+
+  it("a populated TraineeAnalytics (one of each triage direction) conforms", () => {
+    validate(ANALYTICS_ID, FULL_ANALYTICS);
+  });
+
+  it("a zeroed TraineeAnalytics (unknown trainee, empty history) conforms", () => {
+    validate(ANALYTICS_ID, ZEROED_ANALYTICS);
+  });
+
+  it("rejects TraineeAnalytics with an out-of-range rate", () => {
+    const bad = { ...ZEROED_ANALYTICS, underTriageRate: 1.5 };
+    expect(() => validate(ANALYTICS_ID, bad)).toThrow(/schema violations/);
   });
 });

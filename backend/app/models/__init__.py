@@ -5,6 +5,7 @@ field here, change the JSON Schema and the TypeScript type to match, and keep
 tests/test_contract.py green.
 """
 
+from app.models.analytics import AnalyticsPoint, TraineeAnalytics
 from app.models.encounter import Encounter, HistoryTurn, Stage
 from app.models.score import ScoreDimension, ScoreReport, TriageDirection
 from app.models.triage_case import (
@@ -20,6 +21,7 @@ from app.models.triage_case import (
 )
 
 __all__ = [
+    "AnalyticsPoint",
     "CriticalIntervention",
     "Demographics",
     "Disposition",
@@ -32,6 +34,7 @@ __all__ = [
     "ScoreDimension",
     "ScoreReport",
     "Stage",
+    "TraineeAnalytics",
     "TriageCase",
     "TriageDirection",
     "Vitals",

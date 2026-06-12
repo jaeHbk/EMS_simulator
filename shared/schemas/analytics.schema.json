@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ed-triage-trainer/schemas/analytics.schema.json",
+  "title": "TraineeAnalytics",
+  "description": "Per-trainee learning-curve metrics, computed deterministically from stored ScoreReports. The trainee id is an OPAQUE per-browser analytics key, NOT an identity or credential. This is the wire format for GET /api/analytics/{traineeId}. An unknown trainee yields a zeroed report (not a 404).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "traineeId",
+    "totalEncounters",
+    "underTriageRate",
+    "overTriageRate",
+    "correctRate",
+    "meanLevelsOffAbs",
+    "history"
+  ],
+  "properties": {
+    "traineeId": { "type": "string", "description": "Opaque per-browser learner id. Not an identity or credential." },
+    "totalEncounters": { "type": "integer", "minimum": 0, "description": "Count of completed (FEEDBACK-stage, scored) encounters for this trainee." },
+    "underTriageRate": { "type": "number", "minimum": 0, "maximum": 1, "description": "Fraction of scored encounters with triageDirection == UNDER_TRIAGE. 0 when totalEncounters == 0. The headline safety metric." },
+    "overTriageRate": { "type": "number", "minimum": 0, "maximum": 1, "description": "Fraction with triageDirection == OVER_TRIAGE. 0 when totalEncounters == 0." },
+    "correctRate": { "type": "number", "minimum": 0, "maximum": 1, "description": "Fraction with triageDirection == CORRECT. 0 when totalEncounters == 0." },
+    "meanLevelsOffAbs": { "type": "number", "minimum": 0, "description": "Mean of abs(esi.levelsOff) across scored encounters. 0 when totalEncounters == 0." },
+    "history": {
+      "type": "array",
+      "description": "Per-encounter points in chronological order (by startedAt ascending), one per scored encounter.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["encounterId", "startedAt", "triageDirection", "esiAssigned", "esiExpert", "overallPercent"],
+        "properties": {
+          "encounterId": { "type": "string" },
+          "startedAt": { "type": ["string", "null"], "format": "date-time" },
+          "triageDirection": { "type": "string", "enum": ["CORRECT", "OVER_TRIAGE", "UNDER_TRIAGE"] },
+          "esiAssigned": { "type": ["integer", "null"], "minimum": 1, "maximum": 5, "description": "The trainee's ESI decision; null if none was recorded." },
+          "esiExpert": { "type": "integer", "minimum": 1, "maximum": 5, "description": "Expert reference ESI for the case." },
+          "overallPercent": { "type": "number", "minimum": 0, "maximum": 100 }
+        }
+      }
+    }
+  }
+}
