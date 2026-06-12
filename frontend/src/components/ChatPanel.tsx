@@ -2,7 +2,7 @@
 // transcript and a composer. Pure / props-driven — the stage owns the store and
 // passes transcript + an onSend callback. No network, no store access here.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MessagesSquare, Send, Stethoscope, User } from "lucide-react";
 import type { HistoryTurn } from "../api/contract";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,24 @@ export function ChatPanel({
   pending = null,
 }: ChatPanelProps): JSX.Element {
   const [draft, setDraft] = useState("");
+
+  // Sentinel at the tail of the transcript. On each new turn (or when the
+  // "patient is typing" cue toggles) scroll it into view so the newest content
+  // is visible — and, for screen-reader users on a virtual cursor, present. The
+  // scroll is keyed on transcript length + pending so it fires on a transition,
+  // not on every render. jsdom doesn't implement scrollIntoView, so the call is
+  // optional-chained; tests stub it on Element.prototype to assert it ran.
+  const endRef = useRef<HTMLLIElement | null>(null);
+  const isPending = pending != null;
+  useEffect(() => {
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+    endRef.current?.scrollIntoView?.({
+      block: "end",
+      behavior: reduceMotion ? "auto" : "smooth",
+    });
+  }, [transcript.length, isPending]);
 
   const submit = (): void => {
     const text = draft.trim();
@@ -176,6 +194,15 @@ export function ChatPanel({
               </li>
             </>
           )}
+
+          {/* Scroll sentinel: the auto-scroll effect targets this so the newest
+              turn is brought into view. aria-hidden + presentational. */}
+          <li
+            ref={endRef}
+            className="chat-panel__end h-0"
+            aria-hidden="true"
+            data-testid="chat-panel-end"
+          />
         </ol>
       </ScrollArea>
 

@@ -3,7 +3,7 @@
 // web-stages owner via <WorkflowRouter/>; this shell only frames it and exposes
 // the store-backed "start" action.
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Activity, ClipboardList, ShieldAlert, X } from "lucide-react";
 
 import { WorkflowRouter } from "./workflow/WorkflowRouter";
@@ -28,6 +28,12 @@ export const DISCLAIMER =
   "Educational training tool — not a medical device. De-identified/synthetic data only.";
 
 export const APP_NAME = "ED Triage Trainer";
+
+/** Number of vitals fields that currently hold a (non-null) measured value. */
+function countMeasuredVitals(encounter: ReturnType<typeof useEncounter>): number {
+  if (!encounter) return 0;
+  return Object.values(encounter.measuredVitals).filter((v) => v !== null).length;
+}
 
 export default function App(): JSX.Element {
   const encounter = useEncounter();
@@ -57,8 +63,72 @@ export default function App(): JSX.Element {
     }
   }, [stage, fetchAnalytics]);
 
+  // --- App-level polite status announcements for assistive tech ---
+  // Async outcomes (a patient reply, vitals coming back, a score) and the start
+  // of an encounter are otherwise invisible to screen readers. We derive one
+  // concise message per meaningful transition by comparing the current store
+  // state to the previous values held in a ref. The message is rendered into a
+  // visually-hidden aria-live="polite" region below, so it's announced without
+  // moving focus. Only transitions push a message — never on plain re-renders.
+  const [announcement, setAnnouncement] = useState("");
+  const encounterId = encounter?.encounterId ?? null;
+  const historyLength = encounter?.history.length ?? 0;
+  const lastTurnRole =
+    historyLength > 0 ? encounter?.history[historyLength - 1]?.role : undefined;
+  const measuredCount = countMeasuredVitals(encounter);
+  const hasScore = encounter?.scoreReport != null || stage === "FEEDBACK";
+
+  const prev = useRef<{
+    encounterId: string | null;
+    historyLength: number;
+    measuredCount: number;
+    hasScore: boolean;
+  }>({
+    encounterId: null,
+    historyLength: 0,
+    measuredCount: 0,
+    hasScore: false,
+  });
+
+  useEffect(() => {
+    const before = prev.current;
+    let message: string | null = null;
+
+    if (encounterId !== null && encounterId !== before.encounterId) {
+      // A new encounter id appeared (created or resumed): announce the start and
+      // reset the per-encounter baselines so we don't mis-fire on the rehydrated
+      // history/vitals/score this same render carries.
+      message = "Encounter started.";
+    } else if (encounterId !== null && encounterId === before.encounterId) {
+      // Same encounter: report the most salient single transition this render.
+      if (hasScore && !before.hasScore) {
+        message = "Score ready.";
+      } else if (
+        historyLength > before.historyLength &&
+        lastTurnRole === "patient"
+      ) {
+        message = "Patient replied.";
+      } else if (measuredCount > before.measuredCount) {
+        message = "Vitals measured.";
+      }
+    }
+
+    prev.current = { encounterId, historyLength, measuredCount, hasScore };
+
+    if (message !== null) {
+      setAnnouncement(message);
+    }
+  }, [encounterId, historyLength, lastTurnRole, measuredCount, hasScore]);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* Visually-hidden polite status region: announces key async transitions
+          (encounter start, patient replies, vitals measured, score ready) to
+          assistive tech without stealing focus. Fed by the effect above. */}
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
+
       <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <div className="mx-auto flex w-full max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2.5">

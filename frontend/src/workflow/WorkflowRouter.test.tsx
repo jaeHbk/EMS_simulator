@@ -77,4 +77,45 @@ describe("WorkflowRouter", () => {
     render(<WorkflowRouter />);
     expect(screen.getByRole("alert")).toHaveTextContent("Boom");
   });
+
+  describe("stage-change focus management", () => {
+    it("wraps the stage in a focusable region (tabIndex -1) tagged with the stage", () => {
+      storeState = makeStoreState({
+        encounter: makeEncounter({ stage: "VITALS" }),
+      });
+      const { container } = render(<WorkflowRouter />);
+      const region = container.querySelector<HTMLElement>(
+        "[data-stage-region]",
+      );
+      expect(region).not.toBeNull();
+      expect(region).toHaveAttribute("tabindex", "-1");
+      expect(region).toHaveAttribute("data-stage-region", "VITALS");
+    });
+
+    it("moves focus to the stage region on mount", () => {
+      storeState = makeStoreState({
+        encounter: makeEncounter({ stage: "HISTORY" }),
+      });
+      const { container } = render(<WorkflowRouter />);
+      const region = container.querySelector<HTMLElement>("[data-stage-region]");
+      expect(region).not.toBeNull();
+      expect(document.activeElement).toBe(region);
+    });
+
+    it("focuses the new stage region when the stage changes", () => {
+      storeState = makeStoreState({
+        encounter: makeEncounter({ stage: "HISTORY" }),
+      });
+      const { container, rerender } = render(<WorkflowRouter />);
+
+      storeState = makeStoreState({
+        encounter: makeEncounter({ stage: "VITALS" }),
+      });
+      rerender(<WorkflowRouter />);
+
+      const region = container.querySelector<HTMLElement>("[data-stage-region]");
+      expect(region).toHaveAttribute("data-stage-region", "VITALS");
+      expect(document.activeElement).toBe(region);
+    });
+  });
 });

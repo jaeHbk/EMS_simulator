@@ -3,6 +3,7 @@
 // showing STAGE_ORDER progress. Handles the null/no-encounter state by prompting
 // the trainee to start. Consumes the store ONLY via the documented hook/actions.
 
+import { useEffect, useRef } from "react";
 import { AlertCircle, ClipboardList } from "lucide-react";
 
 import type { Stage } from "../api/contract";
@@ -32,6 +33,27 @@ export function WorkflowRouter(): JSX.Element {
   const error = useEncounterStore((s) => s.error);
   const loading = useEncounterStore((s) => s.loading);
   const createEncounter = useEncounterStore((s) => s.createEncounter);
+
+  // Stage-change focus management: when the stage changes (and on first mount of
+  // a stage), move keyboard focus to the new stage region so screen-reader users
+  // land on the new content instead of being stranded where the prior stage was.
+  // The region is a focusable container (tabIndex -1, focus-visible suppressed)
+  // wrapping the rendered stage; its heading remains the real <h2> the stage owns.
+  const stage = encounter?.stage ?? null;
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (stage === null) return;
+    const el = stageRef.current;
+    if (!el) return;
+    el.focus?.({ preventScroll: true });
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+    el.scrollIntoView?.({
+      block: "nearest",
+      behavior: reduceMotion ? "auto" : "smooth",
+    });
+  }, [stage]);
 
   // No-encounter state: prompt to start.
   if (!encounter) {
@@ -81,7 +103,12 @@ export function WorkflowRouter(): JSX.Element {
         </Alert>
       )}
 
-      <div>
+      <div
+        ref={stageRef}
+        tabIndex={-1}
+        data-stage-region={encounter.stage}
+        className="outline-none"
+      >
         <StageComponent />
       </div>
     </div>

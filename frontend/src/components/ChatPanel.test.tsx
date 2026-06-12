@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 
 import type { HistoryTurn } from "../api/contract";
@@ -112,6 +112,78 @@ describe("ChatPanel", () => {
       expect(
         screen.queryByText(/no questions asked yet/i),
       ).not.toBeInTheDocument();
+    });
+  });
+
+  describe("auto-scroll to the newest turn", () => {
+    // jsdom does not implement scrollIntoView; define a spy on the prototype so
+    // the component's guarded `endRef.current?.scrollIntoView?.(...)` finds it.
+    let scrollSpy: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      scrollSpy = vi.fn();
+      Element.prototype.scrollIntoView = scrollSpy;
+    });
+
+    afterEach(() => {
+      // Remove the stub so it doesn't leak to other suites.
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    });
+
+    it("scrolls the sentinel into view on initial render", () => {
+      render(<ChatPanel transcript={TRANSCRIPT} onSend={() => {}} />);
+      expect(scrollSpy).toHaveBeenCalled();
+    });
+
+    it("scrolls again when the transcript grows", () => {
+      const { rerender } = render(
+        <ChatPanel transcript={TRANSCRIPT} onSend={() => {}} />,
+      );
+      const initialCalls = scrollSpy.mock.calls.length;
+
+      const grown: HistoryTurn[] = [
+        ...TRANSCRIPT,
+        { role: "trainee", text: "Any nausea?" },
+        { role: "patient", text: "A little." },
+      ];
+      rerender(<ChatPanel transcript={grown} onSend={() => {}} />);
+
+      expect(scrollSpy.mock.calls.length).toBeGreaterThan(initialCalls);
+    });
+
+    it("scrolls when the pending typing indicator toggles on", () => {
+      const { rerender } = render(
+        <ChatPanel transcript={TRANSCRIPT} onSend={() => {}} />,
+      );
+      const initialCalls = scrollSpy.mock.calls.length;
+
+      rerender(
+        <ChatPanel transcript={TRANSCRIPT} onSend={() => {}} pending="Anything else?" />,
+      );
+
+      expect(scrollSpy.mock.calls.length).toBeGreaterThan(initialCalls);
+    });
+
+    it("uses non-smooth behavior when prefers-reduced-motion is set", () => {
+      const matchMediaSpy = vi
+        .spyOn(window, "matchMedia")
+        .mockImplementation((query: string) => ({
+          matches: query.includes("reduce"),
+          media: query,
+          onchange: null,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        }) as unknown as MediaQueryList);
+
+      render(<ChatPanel transcript={TRANSCRIPT} onSend={() => {}} />);
+
+      expect(scrollSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ behavior: "auto" }),
+      );
+      matchMediaSpy.mockRestore();
     });
   });
 });
