@@ -1,0 +1,23 @@
+{
+  "dataset": "mimic-iv-ed-demo",
+  "version": "2.2",
+  "source_url": "https://physionet.org/files/mimic-iv-ed-demo/2.2/ed",
+  "license": "Open Data Commons Open Database License (ODbL) v1.0",
+  "files": {
+    "edstays.csv": {
+      "bytes": 21401,
+      "sha256": "42d912546ef8f514df020f554000ab3e14788ef369d088334dee21cb51be50b7",
+      "source": "https://physionet.org/files/mimic-iv-ed-demo/2.2/ed/edstays.csv.gz"
+    },
+    "triage.csv": {
+      "bytes": 13366,
+      "sha256": "a0418ccaeaf9ac6c1528ce3c68df83f45e391f98819013ee37f6ee864c6fbb76",
+      "source": "https://physionet.org/files/mimic-iv-ed-demo/2.2/ed/triage.csv.gz"
+    },
+    "diagnosis.csv": {
+      "bytes": 32257,
+      "sha256": "3aa6807be1d6c13cc9b966d5a8a156b7b93ef7ad2d60ae442c5313553b131eeb",
+      "source": "https://physionet.org/files/mimic-iv-ed-demo/2.2/ed/diagnosis.csv.gz"
+    }
+  }
+}
