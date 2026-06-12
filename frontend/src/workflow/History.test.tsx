@@ -69,6 +69,33 @@ describe("History stage", () => {
     expect(sendHistory).toHaveBeenCalledWith("Any shortness of breath?");
   });
 
+  it("renders the optimistic question + typing indicator from pendingQuestion", () => {
+    // The store exposes `pendingQuestion`; the fixture state doesn't type it, so
+    // augment the backing state to mirror an in-flight question.
+    storeState = {
+      ...makeStoreState({
+        encounter: makeEncounter({ stage: "HISTORY", history: [] }),
+      }),
+      pendingQuestion: "Any shortness of breath?",
+    } as EncounterStoreState & { pendingQuestion: string };
+
+    const { container } = render(<History />);
+
+    const optimistic = container.querySelector('[data-pending="true"]');
+    expect(optimistic).toHaveTextContent("Any shortness of breath?");
+    expect(
+      screen.getByRole("status", { name: /patient is typing/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no optimistic turns when there is no pending question", () => {
+    const { container } = render(<History />);
+    expect(container.querySelector('[data-pending="true"]')).toBeNull();
+    expect(
+      screen.queryByRole("status", { name: /patient is typing/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it("advances to VITALS when 'Proceed to vitals' is clicked", () => {
     const advance = vi.fn(async () => {});
     storeState = makeStoreState({

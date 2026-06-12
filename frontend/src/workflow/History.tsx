@@ -14,6 +14,8 @@ export function History(): JSX.Element {
   const sendHistory = useEncounterStore((s) => s.sendHistory);
   const advance = useEncounterStore((s) => s.advance);
   const loading = useEncounterStore((s) => s.loading);
+  // Coalesce undefined → null so a mocked store without this slice is safe.
+  const pendingQuestion = useEncounterStore((s) => s.pendingQuestion) ?? null;
 
   if (!encounter) {
     return (
@@ -47,6 +49,7 @@ export function History(): JSX.Element {
           <ChatPanel
             transcript={encounter.history}
             disabled={loading}
+            pending={pendingQuestion}
             onSend={(text) => {
               void sendHistory(text);
             }}

@@ -16,6 +16,12 @@ export interface ChatPanelProps {
   onSend: (text: string) => void;
   disabled?: boolean;
   placeholder?: string;
+  /**
+   * The trainee's in-flight question, or null/undefined when none is pending.
+   * When set, an optimistic trainee bubble (rendered in-flight, dimmed) plus a
+   * "Patient is typing…" indicator are shown after the real transcript.
+   */
+  pending?: string | null;
 }
 
 export function ChatPanel({
@@ -23,6 +29,7 @@ export function ChatPanel({
   onSend,
   disabled = false,
   placeholder = "Ask the patient a question…",
+  pending = null,
 }: ChatPanelProps): JSX.Element {
   const [draft, setDraft] = useState("");
 
@@ -42,7 +49,7 @@ export function ChatPanel({
           className="chat-panel__transcript flex flex-col gap-4 p-4"
           aria-label="History transcript"
         >
-          {transcript.length === 0 && (
+          {transcript.length === 0 && pending == null && (
             <li className="chat-panel__empty flex flex-col items-center justify-center gap-2 py-12 text-center text-sm text-muted-foreground">
               <MessagesSquare className="h-7 w-7 text-muted-foreground/70" aria-hidden="true" />
               No questions asked yet. Start taking the history.
@@ -103,6 +110,72 @@ export function ChatPanel({
               </li>
             );
           })}
+
+          {pending != null && (
+            <>
+              {/* Optimistic echo of the trainee's just-sent question. Mirrors a
+                  real trainee turn but dimmed to read as not-yet-confirmed. */}
+              <li
+                className="chat-panel__turn chat-panel__turn--trainee chat-panel__turn--pending flex w-full flex-row-reverse gap-2.5 opacity-60"
+                data-role="trainee"
+                data-pending="true"
+              >
+                <span
+                  className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-primary"
+                  aria-hidden="true"
+                >
+                  <User className="h-4 w-4" />
+                </span>
+                <div className="flex max-w-[78%] flex-col items-end gap-1">
+                  <span className="chat-panel__role pr-1 text-xs font-medium text-muted-foreground">
+                    You
+                  </span>
+                  <span className="chat-panel__text whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-primary px-3.5 py-2 text-sm leading-relaxed text-primary-foreground shadow-sm">
+                    {pending}
+                  </span>
+                </div>
+              </li>
+
+              {/* "Patient is typing…" cue while the round-trip is in flight. */}
+              <li
+                className="chat-panel__turn chat-panel__turn--patient chat-panel__typing flex w-full flex-row gap-2.5"
+                data-role="patient"
+                data-typing="true"
+                aria-live="polite"
+              >
+                <span
+                  className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground"
+                  aria-hidden="true"
+                >
+                  <Stethoscope className="h-4 w-4" />
+                </span>
+                <div className="flex max-w-[78%] flex-col items-start gap-1">
+                  <span className="chat-panel__role pl-1 text-xs font-medium text-muted-foreground">
+                    Patient
+                  </span>
+                  <span
+                    className="chat-panel__typing-bubble flex items-center gap-1 rounded-2xl rounded-tl-sm border border-border bg-muted px-3.5 py-3 shadow-sm"
+                    role="status"
+                    aria-label="Patient is typing"
+                  >
+                    <span className="sr-only">Patient is typing…</span>
+                    <span
+                      className="chat-panel__dot h-1.5 w-1.5 rounded-full bg-muted-foreground/70 animate-bounce motion-reduce:animate-none [animation-delay:-0.3s]"
+                      aria-hidden="true"
+                    />
+                    <span
+                      className="chat-panel__dot h-1.5 w-1.5 rounded-full bg-muted-foreground/70 animate-bounce motion-reduce:animate-none [animation-delay:-0.15s]"
+                      aria-hidden="true"
+                    />
+                    <span
+                      className="chat-panel__dot h-1.5 w-1.5 rounded-full bg-muted-foreground/70 animate-bounce motion-reduce:animate-none"
+                      aria-hidden="true"
+                    />
+                  </span>
+                </div>
+              </li>
+            </>
+          )}
         </ol>
       </ScrollArea>
 

@@ -264,6 +264,56 @@ describe("encounterStore (injected mock client)", () => {
     expect(store.getState().analytics).toEqual(analytics);
   });
 
+  it("sendHistory sets pendingQuestion before the await and clears it on success", async () => {
+    const client = makeMockClient();
+    const created = makeEncounter();
+    client.createEncounter.mockResolvedValue(created);
+    const store = createEncounterStore(client as unknown as ApiClient);
+    await store.getState().createEncounter();
+    expect(store.getState().pendingQuestion).toBeNull();
+
+    // A deferred POST lets us observe the in-flight state synchronously.
+    let resolvePost!: (enc: Encounter) => void;
+    client.postHistory.mockReturnValue(
+      new Promise<Encounter>((resolve) => {
+        resolvePost = resolve;
+      }),
+    );
+
+    const inFlight = store.getState().sendHistory("Any chest pain?");
+    // Set immediately, before the request resolves, so the UI can echo it.
+    expect(store.getState().pendingQuestion).toBe("Any chest pain?");
+    expect(store.getState().loading).toBe(true);
+
+    resolvePost(makeEncounter({ stage: "HISTORY" }));
+    await inFlight;
+
+    // Cleared once the request settles; the real turns now live on encounter.
+    expect(store.getState().pendingQuestion).toBeNull();
+    expect(store.getState().loading).toBe(false);
+    expect(store.getState().error).toBeNull();
+  });
+
+  it("sendHistory clears pendingQuestion even when the request fails", async () => {
+    const client = makeMockClient();
+    const created = makeEncounter();
+    client.createEncounter.mockResolvedValue(created);
+    client.postHistory.mockRejectedValue(new ApiError("LLM unavailable", 503));
+    const store = createEncounterStore(client as unknown as ApiClient);
+    await store.getState().createEncounter();
+
+    await expect(
+      store.getState().sendHistory("Any chest pain?"),
+    ).resolves.toBeUndefined();
+
+    // Failure path still clears the in-flight echo and surfaces the error.
+    expect(store.getState().pendingQuestion).toBeNull();
+    expect(store.getState().error).toBe("LLM unavailable");
+    expect(store.getState().loading).toBe(false);
+    // Prior encounter is preserved on failure.
+    expect(store.getState().encounter).toEqual(created);
+  });
+
   it("clearError and reset restore state", async () => {
     const client = makeMockClient();
     client.createEncounter.mockResolvedValue(makeEncounter());

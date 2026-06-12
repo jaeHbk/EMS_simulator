@@ -22,6 +22,13 @@ export interface EncounterState {
   error: string | null;
   /** This browser's trainee learning-curve, or null until first fetched. */
   analytics: TraineeAnalytics | null;
+  /**
+   * The trainee's in-flight HISTORY question, or null. Set the moment
+   * `sendHistory` is called (before the POST resolves) so the UI can echo the
+   * question instantly + show a "patient is typing" cue, then cleared when the
+   * request settles (on success AND failure).
+   */
+  pendingQuestion: string | null;
 }
 
 /** Async actions. Each wraps a client call and adopts its returned Encounter. */
@@ -53,6 +60,7 @@ const initialState: EncounterState = {
   loading: false,
   error: null,
   analytics: null,
+  pendingQuestion: null,
 };
 
 /** Normalize any thrown value into a user-facing message. */
@@ -101,7 +109,18 @@ export function createEncounterStore(client: ApiClient = apiClient) {
 
       advance: (to) => run(() => client.advance(requireId(), to)),
 
-      sendHistory: (text) => run(() => client.postHistory(requireId(), text)),
+      sendHistory: async (text) => {
+        // Echo the question immediately: set it before the await so the panel
+        // can render the optimistic trainee bubble + "patient is typing" cue.
+        set({ pendingQuestion: text });
+        try {
+          await run(() => client.postHistory(requireId(), text));
+        } finally {
+          // Clear on every outcome — success adopts the real turns, failure
+          // surfaces the error; either way the in-flight echo is no longer valid.
+          set({ pendingQuestion: null });
+        }
+      },
 
       measureVitals: (fields) => run(() => client.postVitals(requireId(), fields)),
 
@@ -151,6 +170,10 @@ export const useError = (): string | null => useEncounterStore((s) => s.error);
 /** This browser's trainee analytics, or null until first fetched. */
 export const useAnalytics = (): TraineeAnalytics | null =>
   useEncounterStore((s) => s.analytics);
+
+/** The trainee's in-flight HISTORY question, or null when none is pending. */
+export const usePendingQuestion = (): string | null =>
+  useEncounterStore((s) => s.pendingQuestion);
 
 /** All store actions, as a stable bag of functions. */
 export const useEncounterActions = (): EncounterActions =>
