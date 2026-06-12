@@ -12,6 +12,43 @@ import { ApiError, apiClient, type ApiClient } from "../api/client";
 import type { Encounter, Stage, TraineeAnalytics } from "../api/contract";
 import { getTraineeId } from "../lib/traineeId";
 
+/**
+ * localStorage key under which the active encounter id is persisted so a
+ * refresh / tab reload mid-encounter can rehydrate the encounter from the
+ * server instead of dropping the trainee back to the start screen.
+ */
+const ACTIVE_ID_STORAGE_KEY = "ed-triage-active-encounter";
+
+/**
+ * Persist the active encounter id. Storage may be unavailable (private mode);
+ * never throw — losing resume-on-reload is a degraded but acceptable fallback.
+ */
+function saveActiveId(id: string): void {
+  try {
+    window.localStorage.setItem(ACTIVE_ID_STORAGE_KEY, id);
+  } catch {
+    /* storage unavailable (private mode); resume just won't persist */
+  }
+}
+
+/** Read the persisted active encounter id, or null if none / storage is unavailable. */
+function loadActiveId(): string | null {
+  try {
+    return window.localStorage.getItem(ACTIVE_ID_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Drop the persisted active encounter id (on reset / a 404 stale id). */
+function clearActiveId(): void {
+  try {
+    window.localStorage.removeItem(ACTIVE_ID_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 /** The serializable slice of store state. */
 export interface EncounterState {
   /** Current encounter, or null before one is created / after a hard error. */
@@ -34,6 +71,13 @@ export interface EncounterState {
 /** Async actions. Each wraps a client call and adopts its returned Encounter. */
 export interface EncounterActions {
   createEncounter: (sources?: string[]) => Promise<void>;
+  /**
+   * Rehydrate the encounter on app load from the persisted active id. No stored
+   * id → no-op (empty start state). A stored id that the server no longer knows
+   * (404) is treated as an expected stale id: it's cleared and no error is
+   * surfaced. Other failures flow through the normal `run()` error handling.
+   */
+  resume: () => Promise<void>;
   refresh: () => Promise<void>;
   advance: (to: Stage) => Promise<void>;
   sendHistory: (text: string) => Promise<void>;
@@ -86,6 +130,10 @@ export function createEncounterStore(client: ApiClient = apiClient) {
       set({ loading: true, error: null });
       try {
         const encounter = await op();
+        // Persist the active id at this single chokepoint: every action that
+        // adopts an encounter funnels through here, so a refresh mid-encounter
+        // can rehydrate it via resume().
+        saveActiveId(encounter.encounterId);
         set({ encounter, loading: false, error: null });
       } catch (error) {
         set({ loading: false, error: toMessage(error) });
@@ -104,6 +152,31 @@ export function createEncounterStore(client: ApiClient = apiClient) {
 
       createEncounter: (sources) =>
         run(() => client.createEncounter(sources, getTraineeId())),
+
+      resume: async () => {
+        const storedId = loadActiveId();
+        // No stored id → nothing to rehydrate; leave the empty start state.
+        if (!storedId) return;
+        // Track a 404 from the fetch: `run()` swallows the error into a message
+        // string (losing the status), so observe the status here as the op runs.
+        let staleId = false;
+        await run(async () => {
+          try {
+            return await client.getEncounter(storedId);
+          } catch (error) {
+            if (error instanceof ApiError && error.status === 404) staleId = true;
+            throw error;
+          }
+        });
+        // A 404 means the encounter is gone server-side (restarted backend,
+        // evicted state): an expected stale id, not a real failure. Drop the
+        // stored id and clear the error `run()` set so the UI shows the start
+        // screen instead of a scary banner. Other errors keep normal handling.
+        if (staleId) {
+          clearActiveId();
+          set({ error: null });
+        }
+      },
 
       refresh: () => run(() => client.getEncounter(requireId())),
 
@@ -143,7 +216,10 @@ export function createEncounterStore(client: ApiClient = apiClient) {
 
       clearError: () => set({ error: null }),
 
-      reset: () => set({ ...initialState }),
+      reset: () => {
+        clearActiveId();
+        set({ ...initialState });
+      },
     };
   });
 }
@@ -182,6 +258,7 @@ export const useEncounterActions = (): EncounterActions =>
 function selectActions(s: EncounterStore): EncounterActions {
   return {
     createEncounter: s.createEncounter,
+    resume: s.resume,
     refresh: s.refresh,
     advance: s.advance,
     sendHistory: s.sendHistory,

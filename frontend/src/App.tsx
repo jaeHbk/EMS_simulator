@@ -34,9 +34,17 @@ export default function App(): JSX.Element {
   const loading = useLoading();
   const error = useError();
   const analytics = useAnalytics();
-  const { createEncounter, fetchAnalytics, clearError } = useEncounterActions();
+  const { createEncounter, resume, fetchAnalytics, clearError } =
+    useEncounterActions();
 
   const startLabel = encounter ? "Start new encounter" : "Start encounter";
+
+  // Rehydrate the active encounter on load: a refresh / tab reload / projector
+  // hiccup mid-encounter would otherwise discard everything. Runs once on mount,
+  // independently of the analytics effect below. A no-op when nothing is stored.
+  useEffect(() => {
+    void resume();
+  }, [resume]);
 
   // Refresh the learning curve on mount and whenever a case completes scoring
   // (FEEDBACK) or the trainee returns to the empty state. `stage` (a primitive)

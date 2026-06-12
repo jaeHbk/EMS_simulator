@@ -93,7 +93,16 @@ function makeAnalytics(
   };
 }
 
+/** localStorage key the store persists the active encounter id under. */
+const ACTIVE_ID_KEY = "ed-triage-active-encounter";
+
 describe("encounterStore (injected mock client)", () => {
+  beforeEach(() => {
+    // jsdom provides a real localStorage; clear it so persistence assertions
+    // don't leak across tests (the store reads/writes the real storage).
+    window.localStorage.clear();
+  });
+
   it("createEncounter sets the returned encounter as the source of truth", async () => {
     const client = makeMockClient();
     const enc = makeEncounter();
@@ -312,6 +321,74 @@ describe("encounterStore (injected mock client)", () => {
     expect(store.getState().loading).toBe(false);
     // Prior encounter is preserved on failure.
     expect(store.getState().encounter).toEqual(created);
+  });
+
+  it("resume rehydrates the encounter from the stored id", async () => {
+    window.localStorage.setItem(ACTIVE_ID_KEY, "enc-stored");
+    const client = makeMockClient();
+    const enc = makeEncounter({ encounterId: "enc-stored", stage: "VITALS" });
+    client.getEncounter.mockResolvedValue(enc);
+    const store = createEncounterStore(client as unknown as ApiClient);
+
+    await store.getState().resume();
+
+    expect(client.getEncounter).toHaveBeenCalledWith("enc-stored");
+    expect(store.getState().encounter).toEqual(enc);
+    expect(store.getState().error).toBeNull();
+    expect(store.getState().loading).toBe(false);
+  });
+
+  it("resume clears the stored id and surfaces no error on a 404 (stale id)", async () => {
+    window.localStorage.setItem(ACTIVE_ID_KEY, "enc-gone");
+    const client = makeMockClient();
+    client.getEncounter.mockRejectedValue(new ApiError("not found", 404));
+    const store = createEncounterStore(client as unknown as ApiClient);
+
+    await expect(store.getState().resume()).resolves.toBeUndefined();
+
+    expect(client.getEncounter).toHaveBeenCalledWith("enc-gone");
+    // Stale id is dropped; no encounter, and no lingering scary error banner.
+    expect(store.getState().encounter).toBeNull();
+    expect(store.getState().error).toBeNull();
+    expect(window.localStorage.getItem(ACTIVE_ID_KEY)).toBeNull();
+  });
+
+  it("resume keeps a non-404 error so the normal handling shows it", async () => {
+    window.localStorage.setItem(ACTIVE_ID_KEY, "enc-stored");
+    const client = makeMockClient();
+    client.getEncounter.mockRejectedValue(new ApiError("server down", 500));
+    const store = createEncounterStore(client as unknown as ApiClient);
+
+    await store.getState().resume();
+
+    // A real failure surfaces normally and the id is kept (transient outage).
+    expect(store.getState().error).toBe("server down");
+    expect(store.getState().encounter).toBeNull();
+    expect(window.localStorage.getItem(ACTIVE_ID_KEY)).toBe("enc-stored");
+  });
+
+  it("resume is a no-op when no id is stored (no client call, empty state)", async () => {
+    const client = makeMockClient();
+    const store = createEncounterStore(client as unknown as ApiClient);
+
+    await store.getState().resume();
+
+    expect(client.getEncounter).not.toHaveBeenCalled();
+    expect(store.getState().encounter).toBeNull();
+    expect(store.getState().error).toBeNull();
+  });
+
+  it("persists the active id when an encounter is adopted, clears it on reset", async () => {
+    const client = makeMockClient();
+    const enc = makeEncounter({ encounterId: "enc-persist" });
+    client.createEncounter.mockResolvedValue(enc);
+    const store = createEncounterStore(client as unknown as ApiClient);
+
+    await store.getState().createEncounter();
+    expect(window.localStorage.getItem(ACTIVE_ID_KEY)).toBe("enc-persist");
+
+    store.getState().reset();
+    expect(window.localStorage.getItem(ACTIVE_ID_KEY)).toBeNull();
   });
 
   it("clearError and reset restore state", async () => {
