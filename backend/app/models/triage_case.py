@@ -161,4 +161,12 @@ class TriageCase(_Strict):
     presentation: Presentation
     expert: ExpertLabels
     outcome: Outcome | None = None
+    gradableDimensions: list[str] | None = Field(
+        default=None,
+        description=(
+            "If set, only these scoring dimensions are graded and weighted; others "
+            "are excluded from normalization. None = grade all dimensions (synthetic "
+            "default). Used for sources like MIMIC that lack curated red-flags/interventions."
+        ),
+    )
     provenance: Provenance

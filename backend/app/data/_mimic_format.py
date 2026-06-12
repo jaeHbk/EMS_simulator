@@ -263,6 +263,16 @@ def load_cases(source: str, data_dir: Path, license_str: str) -> list[TriageCase
                 # edLengthOfStayMinutes omitted (integer-or-absent per schema).
                 "diagnosisCategories": diagnoses_by_stay.get(stay_id, []),
             },
+            # MIMIC supplies a triage ESI, triage vitals, and a real disposition,
+            # but no curated red flags and no expert critical interventions. Declare
+            # only the dimensions this source can actually grade, so the engine
+            # excludes HISTORY_COMPLETENESS / INTERVENTION_RECOGNITION (which would
+            # otherwise grade against absent data) from scoring and weighting.
+            "gradableDimensions": [
+                "ESI_ACCURACY",
+                "VITALS_ACQUISITION",
+                "OUTCOME_ALIGNMENT",
+            ],
             "provenance": {
                 "license": license_str,
                 "deidentified": is_deidentified,

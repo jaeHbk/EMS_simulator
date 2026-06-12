@@ -50,6 +50,7 @@ def make_case(
     ground_truth_vitals: Vitals | None = None,
     critical_interventions: list[CriticalIntervention] | None = None,
     outcome: Outcome | None = None,
+    gradable_dimensions: list[str] | None = None,
 ) -> TriageCase:
     return TriageCase(
         caseId="case-1",
@@ -70,6 +71,7 @@ def make_case(
             else [],
         ),
         outcome=outcome,
+        gradableDimensions=gradable_dimensions,
         provenance=Provenance(license="ODbL", deidentified=True),
     )
 
@@ -282,6 +284,67 @@ def test_outcome_excluded_even_when_outcome_object_has_no_disposition() -> None:
     report = score(enc, case)
     assert DimensionKey.OUTCOME_ALIGNMENT not in {d.key for d in report.dimensions}
     assert sum(d.weight for d in report.dimensions) == pytest.approx(1.0)
+
+
+# ---------------------------------------------------------------------------
+# Per-case gradableDimensions gating: a case may declare which dimensions it can
+# actually grade. Only those are scored + weighted; the rest are excluded from
+# normalization (same mechanism that drops OUTCOME_ALIGNMENT when no outcome).
+# When gradableDimensions is None the behavior is exactly as before.
+# ---------------------------------------------------------------------------
+
+
+def test_gradable_dimensions_filters_to_only_declared_dimensions() -> None:
+    # The case declares it can grade only ESI accuracy and vitals acquisition.
+    # Despite having red flags (which would otherwise be graded + missed), the
+    # report must contain ONLY the two declared dimensions, their weights must
+    # renormalize to sum to 1.0, and missedRedFlags must be empty (history not
+    # graded). Outcome present but not declared -> also excluded.
+    case = make_case(
+        expert_esi=3,
+        red_flags=["syncope", "diaphoresis"],  # would normally be missed -> graded
+        ground_truth_vitals=Vitals(heartRate=110.0),
+        critical_interventions=[CriticalIntervention.OXYGEN],
+        outcome=Outcome(disposition=Disposition.ADMIT),
+        gradable_dimensions=["ESI_ACCURACY", "VITALS_ACQUISITION"],
+    )
+    enc = make_encounter(esi_assigned=3, measured_vitals=Vitals(heartRate=110.0))
+    report = score(enc, case)
+
+    keys = {d.key for d in report.dimensions}
+    assert keys == {DimensionKey.ESI_ACCURACY, DimensionKey.VITALS_ACQUISITION}
+    assert len(report.dimensions) == 2
+    # Excluded dimensions must be absent entirely.
+    assert DimensionKey.HISTORY_COMPLETENESS not in keys
+    assert DimensionKey.INTERVENTION_RECOGNITION not in keys
+    assert DimensionKey.OUTCOME_ALIGNMENT not in keys
+    # Remaining weights renormalize to sum to 1.0.
+    assert sum(d.weight for d in report.dimensions) == pytest.approx(1.0)
+    # Relative proportion preserved: ESI was 0.40 of (0.40 + 0.10) = 0.50.
+    esi_weight = _dim(report, DimensionKey.ESI_ACCURACY).weight
+    assert esi_weight == pytest.approx(0.40 / 0.50)
+    # History was not graded, so no missed red flags are reported.
+    assert report.missedRedFlags == []
+
+
+def test_gradable_dimensions_none_scores_exactly_as_before() -> None:
+    # A normal case with gradableDimensions=None (the default) must score EXACTLY
+    # as before: all five dimensions present (outcome included here), weights sum
+    # to 1.0. This re-asserts the pre-existing invariant so a regression in the
+    # default (None) path would fail this test.
+    case = make_case(
+        expert_esi=2,
+        outcome=Outcome(disposition=Disposition.ADMIT),
+    )
+    assert case.gradableDimensions is None
+    enc = make_encounter(esi_assigned=2)
+    report = score(enc, case)
+    assert len(report.dimensions) == 5
+    assert {d.key for d in report.dimensions} == set(DimensionKey)
+    assert sum(d.weight for d in report.dimensions) == pytest.approx(1.0)
+    # Default weights unchanged on the None path.
+    assert _dim(report, DimensionKey.ESI_ACCURACY).weight == pytest.approx(0.40)
+    assert _dim(report, DimensionKey.OUTCOME_ALIGNMENT).weight == pytest.approx(0.15)
 
 
 # ---------------------------------------------------------------------------

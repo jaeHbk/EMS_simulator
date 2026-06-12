@@ -21,8 +21,14 @@ Scoring is a weighted sum of competency dimensions, each scored in [0, 1]:
 
 When the case has no real outcome (`case.outcome is None`), OUTCOME_ALIGNMENT
 gets weight 0 and is *excluded* from normalization; the remaining weights are
-renormalized to sum to 1.0. `overallPercent` is the weighted sum of dimension
-scores by their normalized weights, times 100, rounded to one decimal place.
+renormalized to sum to 1.0. The same renormalization also drops any dimension a
+case does not declare gradable: when `case.gradableDimensions` is set, only those
+dimensions are graded and weighted (others are excluded), which lets real-data
+sources that lack curated red-flags/expert-interventions avoid grading against
+absent data. When `gradableDimensions is None` (the synthetic default) every
+dimension is graded exactly as before. `overallPercent` is the weighted sum of
+dimension scores by their normalized weights, times 100, rounded to one decimal
+place.
 """
 
 from __future__ import annotations
@@ -596,6 +602,28 @@ def score(enc: Encounter, case: TriageCase) -> ScoreReport:
     dimensions: list[ScoreDimension] = [esi_dim, history_dim, vitals_dim, interventions_dim]
     if outcome_dim is not None:
         dimensions.append(outcome_dim)
+
+    # Per-case dimension gating. When ``case.gradableDimensions`` is set, only the
+    # listed dimensions are graded; the rest are dropped from the report and from
+    # weight normalization (the same renormalization that drops OUTCOME_ALIGNMENT
+    # when there is no outcome). This composes with the outcome exclusion above: a
+    # dimension can be dropped by EITHER reason, never double-counted. When the
+    # field is None the path below is exactly as before (byte-identical default).
+    # Used for real-data sources (e.g. MIMIC) that lack curated red-flags/expert
+    # interventions, so HISTORY_COMPLETENESS / INTERVENTION_RECOGNITION would grade
+    # against absent data and must not be scored or weighted.
+    if case.gradableDimensions is not None:
+        allowed = set(case.gradableDimensions)
+        filtered = [d for d in dimensions if d.key.value in allowed]
+        # Defensive: a real source always grades ESI_ACCURACY, so this is normally
+        # non-empty. If a case excluded every dimension we'd divide by zero below,
+        # so fall back to the full set rather than emit an empty/zero report.
+        if filtered:
+            dimensions = filtered
+        if DimensionKey.HISTORY_COMPLETENESS.value not in allowed:
+            # History is not graded for this case; do not report missed red flags
+            # for a dimension we did not score.
+            missed_red_flags = []
 
     # Renormalize weights across the included dimensions so they sum to 1.0.
     raw_weight_total = sum(d.weight for d in dimensions)

@@ -21,7 +21,7 @@ from app.data import (
     synthetic,
 )
 from app.data._credentialed import CredentialedDataMissingError
-from app.models import TriageCase
+from app.models import Encounter, TriageCase
 
 
 @pytest.fixture(autouse=True)
@@ -220,6 +220,64 @@ def test_mimic_loader_marks_clean_data_deidentified(tmp_path) -> None:
     _write_mimic_fixture(tmp_path)
     cases = _mimic_format.load_cases(source="mimic_demo", data_dir=tmp_path, license_str="X")
     assert cases and all(c.provenance.deidentified is True for c in cases)
+
+
+def test_mimic_loader_sets_gradable_dimensions(tmp_path) -> None:
+    """A MIMIC-loaded case declares only the dimensions the source can grade:
+    ESI accuracy, vitals acquisition, and outcome alignment. HISTORY_COMPLETENESS
+    and INTERVENTION_RECOGNITION are excluded because MIMIC has no curated red
+    flags or expert interventions."""
+    from app.data import _mimic_format
+
+    _write_mimic_fixture(tmp_path)
+    cases = _mimic_format.load_cases(source="mimic_demo", data_dir=tmp_path, license_str="X")
+    assert len(cases) == 1
+    case = cases[0]
+    assert case.gradableDimensions == [
+        "ESI_ACCURACY",
+        "VITALS_ACQUISITION",
+        "OUTCOME_ALIGNMENT",
+    ]
+
+
+def test_mimic_loaded_case_scoring_excludes_history_and_interventions(tmp_path) -> None:
+    """Scoring a MIMIC-loaded case must grade only its declared dimensions:
+    HISTORY_COMPLETENESS and INTERVENTION_RECOGNITION are excluded (and weighted
+    out), since the source supplies neither red flags nor expert interventions."""
+    from app.data import _mimic_format
+    from app.models.encounter import Stage
+    from app.models.score import DimensionKey
+    from app.scoring import score
+
+    _write_mimic_fixture(tmp_path)
+    case = _mimic_format.load_cases(
+        source="mimic_demo", data_dir=tmp_path, license_str="X"
+    )[0]
+
+    enc = Encounter(
+        encounterId="enc-mimic-1",
+        caseId=case.caseId,
+        stage=Stage.FEEDBACK,
+        chiefComplaint=case.presentation.chiefComplaint,
+        history=[],
+        measuredVitals=case.presentation.groundTruthVitals,
+        esiAssigned=case.expert.esi,
+        interventionsOrdered=[],
+    )
+    report = score(enc, case)
+
+    keys = {d.key for d in report.dimensions}
+    assert DimensionKey.HISTORY_COMPLETENESS not in keys
+    assert DimensionKey.INTERVENTION_RECOGNITION not in keys
+    # The declared dimensions are present and their weights renormalize to 1.0.
+    assert keys == {
+        DimensionKey.ESI_ACCURACY,
+        DimensionKey.VITALS_ACQUISITION,
+        DimensionKey.OUTCOME_ALIGNMENT,
+    }
+    assert sum(d.weight for d in report.dimensions) == pytest.approx(1.0)
+    # No red flags were graded -> none reported as missed.
+    assert report.missedRedFlags == []
 
 
 def test_mimic_loader_flags_data_with_identifier_column() -> None:
