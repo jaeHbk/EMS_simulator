@@ -11,6 +11,7 @@ from app.models.score import ScoreDimension, ScoreReport, TriageDirection
 from app.models.triage_case import (
     CriticalIntervention,
     Demographics,
+    Difficulty,
     Disposition,
     ExpertLabels,
     Outcome,
@@ -24,6 +25,7 @@ __all__ = [
     "AnalyticsPoint",
     "CriticalIntervention",
     "Demographics",
+    "Difficulty",
     "Disposition",
     "Encounter",
     "ExpertLabels",

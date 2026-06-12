@@ -21,6 +21,16 @@
     "overTriageRate": { "type": "number", "minimum": 0, "maximum": 1, "description": "Fraction with triageDirection == OVER_TRIAGE. 0 when totalEncounters == 0." },
     "correctRate": { "type": "number", "minimum": 0, "maximum": 1, "description": "Fraction with triageDirection == CORRECT. 0 when totalEncounters == 0." },
     "meanLevelsOffAbs": { "type": "number", "minimum": 0, "description": "Mean of abs(esi.levelsOff) across scored encounters. 0 when totalEncounters == 0." },
+    "byDifficulty": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["trap", "standard"],
+      "description": "Under-triage segmented by case difficulty: 'trap' = cases tagged TRAP (benign-looking, dangerous); 'standard' = STANDARD or untagged cases. null/absent when no scored encounters or the producer didn't resolve difficulty (legacy/zeroed path). The headline safety lens: trap.underTriageRate isolates calibration failures on dangerous-looking-benign presentations.",
+      "properties": {
+        "trap": { "$ref": "#/definitions/difficultyStats" },
+        "standard": { "$ref": "#/definitions/difficultyStats" }
+      }
+    },
     "history": {
       "type": "array",
       "description": "Per-encounter points in chronological order (by startedAt ascending), one per scored encounter.",
@@ -36,6 +46,18 @@
           "esiExpert": { "type": "integer", "minimum": 1, "maximum": 5, "description": "Expert reference ESI for the case." },
           "overallPercent": { "type": "number", "minimum": 0, "maximum": 100 }
         }
+      }
+    }
+  },
+  "definitions": {
+    "difficultyStats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalEncounters", "underTriageRate"],
+      "description": "Under-triage summary for one difficulty bucket.",
+      "properties": {
+        "totalEncounters": { "type": "integer", "minimum": 0, "description": "Count of scored encounters in this difficulty bucket." },
+        "underTriageRate": { "type": "number", "minimum": 0, "maximum": 1, "description": "Fraction of this bucket's scored encounters that were UNDER_TRIAGE. 0 when the bucket is empty." }
       }
     }
   }

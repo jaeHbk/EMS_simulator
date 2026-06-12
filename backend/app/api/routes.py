@@ -319,4 +319,14 @@ def get_trainee_analytics(trainee_id: str) -> TraineeAnalytics:
     FEEDBACK stage, where expert labels are already revealed via scoring.
     """
     encounters = store.list_encounters_by_trainee(trainee_id)
-    return compute_analytics(trainee_id, encounters)
+    # Resolve each distinct case's difficulty so analytics can segment under-triage
+    # into trap vs standard buckets. An unknown/evicted case (KeyError) is treated
+    # as None (-> standard by compute_analytics); we never 500 the analytics read.
+    difficulty_by_case: dict[str, str | None] = {}
+    for case_id in {enc.caseId for enc in encounters}:
+        try:
+            difficulty = data.get_case(case_id).difficulty
+        except KeyError:
+            difficulty = None
+        difficulty_by_case[case_id] = difficulty.value if difficulty is not None else None
+    return compute_analytics(trainee_id, encounters, difficulty_by_case)

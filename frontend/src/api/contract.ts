@@ -120,6 +120,19 @@ export interface AnalyticsPoint {
   overallPercent: number;
 }
 
+// Under-triage summary for one difficulty bucket.
+export interface DifficultyStats {
+  totalEncounters: number;
+  underTriageRate: number; // 0..1
+}
+
+// Under-triage segmented by case difficulty: `trap` = cases tagged TRAP
+// (benign-looking, dangerous); `standard` = STANDARD or untagged cases.
+export interface ByDifficulty {
+  trap: DifficultyStats;
+  standard: DifficultyStats;
+}
+
 // The wire format: GET /api/analytics/{traineeId}. Deterministic per-trainee
 // learning-curve metrics. An unknown trainee yields a zeroed report (not a 404).
 // traineeId is an opaque analytics key, not an identity or credential.
@@ -130,5 +143,10 @@ export interface TraineeAnalytics {
   overTriageRate: number; // 0..1
   correctRate: number; // 0..1
   meanLevelsOffAbs: number;
+  // Under-triage segmented by case difficulty. Optional/nullable: null or absent
+  // when there are no scored encounters or the producer didn't resolve difficulty
+  // (legacy/zeroed path), mirroring the schema (not required) and the Pydantic
+  // model's `None` default.
+  byDifficulty?: ByDifficulty | null;
   history: AnalyticsPoint[];
 }

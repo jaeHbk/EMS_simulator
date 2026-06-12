@@ -356,6 +356,8 @@ def test_unknown_trainee_returns_zeroed_analytics(client: TestClient) -> None:
         "overTriageRate": 0.0,
         "correctRate": 0.0,
         "meanLevelsOffAbs": 0.0,
+        # No scored encounters -> the difficulty segmentation stays null.
+        "byDifficulty": None,
         "history": [],
     }
 
@@ -379,3 +381,52 @@ def test_analytics_ignores_in_progress_encounters(client: TestClient) -> None:
     assert analytics["totalEncounters"] == 1
     assert len(analytics["history"]) == 1
     assert analytics["correctRate"] == pytest.approx(1.0)
+
+
+def test_analytics_segments_under_triage_by_difficulty(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The route segments under-triage into trap vs standard buckets.
+
+    No TRAP case ships yet (Task 3 authors them), so we force the bundled
+    ``_FORCED_CASE`` to resolve as TRAP via the registry's public ``get_case``.
+    A forced under-triage (assign 4 vs expert 3) on that case must land in the
+    trap bucket with underTriageRate == 1.0; a second STANDARD case left untagged
+    (a correct triage) lands in the standard bucket with rate 0.0.
+    """
+    from app.api import routes
+    from app.models import Difficulty
+
+    trainee = "trainee-trap"
+
+    # The trap-mapped case: a forced under-triage (assign 4, expert 3).
+    _walk_to_feedback_with_esi(client, trainee_id=trainee, esi=4)
+
+    # Resolve the real case once, mark a TRAP copy, and serve it for that id only.
+    trap_case = data_registry.get_case(_FORCED_CASE).model_copy(
+        update={"difficulty": Difficulty.TRAP}
+    )
+    real_get_case = data_registry.get_case
+
+    def fake_get_case(case_id: str) -> object:
+        if case_id == _FORCED_CASE:
+            return trap_case
+        return real_get_case(case_id)
+
+    monkeypatch.setattr(routes.data, "get_case", fake_get_case)
+
+    resp = client.get(f"/api/analytics/{trainee}")
+    assert resp.status_code == 200, resp.text
+    analytics = resp.json()
+
+    by_diff = analytics["byDifficulty"]
+    assert by_diff is not None, "difficulty map was provided -> byDifficulty populated"
+    # The single under-triage on the trap-mapped case fills the trap bucket.
+    assert by_diff["trap"]["totalEncounters"] == 1
+    assert by_diff["trap"]["underTriageRate"] == pytest.approx(1.0)
+    # No standard-mapped encounters yet.
+    assert by_diff["standard"]["totalEncounters"] == 0
+    assert by_diff["standard"]["underTriageRate"] == pytest.approx(0.0)
+    # Headline (un-segmented) rate is unchanged by the segmentation.
+    assert analytics["totalEncounters"] == 1
+    assert analytics["underTriageRate"] == pytest.approx(1.0)

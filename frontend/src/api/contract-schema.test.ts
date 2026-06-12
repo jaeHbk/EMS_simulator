@@ -206,7 +206,19 @@ const ZEROED_ANALYTICS: TraineeAnalytics = {
   overTriageRate: 0,
   correctRate: 0,
   meanLevelsOffAbs: 0,
+  // No scored encounters -> the difficulty segmentation is null.
+  byDifficulty: null,
   history: [],
+};
+
+// Same shape as FULL_ANALYTICS but carrying the optional byDifficulty segmentation:
+// the trap bucket isolates under-triage on benign-looking-but-dangerous cases.
+const ANALYTICS_WITH_DIFFICULTY: TraineeAnalytics = {
+  ...FULL_ANALYTICS,
+  byDifficulty: {
+    trap: { totalEncounters: 1, underTriageRate: 1 },
+    standard: { totalEncounters: 2, underTriageRate: 0 },
+  },
 };
 
 describe("contract.ts conforms to shared JSON schemas", () => {
@@ -239,6 +251,35 @@ describe("contract.ts conforms to shared JSON schemas", () => {
 
   it("a zeroed TraineeAnalytics (unknown trainee, empty history) conforms", () => {
     validate(ANALYTICS_ID, ZEROED_ANALYTICS);
+  });
+
+  it("a TraineeAnalytics WITH byDifficulty (trap + standard buckets) conforms", () => {
+    validate(ANALYTICS_ID, ANALYTICS_WITH_DIFFICULTY);
+  });
+
+  it("a TraineeAnalytics WITHOUT byDifficulty conforms (the field is optional)", () => {
+    // FULL_ANALYTICS omits byDifficulty entirely; ZEROED_ANALYTICS sets it null.
+    validate(ANALYTICS_ID, FULL_ANALYTICS);
+    expect("byDifficulty" in FULL_ANALYTICS).toBe(false);
+  });
+
+  it("rejects byDifficulty missing a required bucket", () => {
+    const bad = {
+      ...FULL_ANALYTICS,
+      byDifficulty: { trap: { totalEncounters: 1, underTriageRate: 1 } },
+    };
+    expect(() => validate(ANALYTICS_ID, bad)).toThrow(/schema violations/);
+  });
+
+  it("rejects byDifficulty with an out-of-range bucket rate", () => {
+    const bad = {
+      ...FULL_ANALYTICS,
+      byDifficulty: {
+        trap: { totalEncounters: 1, underTriageRate: 1.5 },
+        standard: { totalEncounters: 0, underTriageRate: 0 },
+      },
+    };
+    expect(() => validate(ANALYTICS_ID, bad)).toThrow(/schema violations/);
   });
 
   it("rejects TraineeAnalytics with an out-of-range rate", () => {

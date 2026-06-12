@@ -110,6 +110,11 @@
       "items": { "type": "string", "enum": ["ESI_ACCURACY", "HISTORY_COMPLETENESS", "VITALS_ACQUISITION", "INTERVENTION_RECOGNITION", "OUTCOME_ALIGNMENT"] },
       "description": "If set, only these scoring dimensions are graded and weighted; others are excluded from normalization. null = grade all dimensions (synthetic default). Used for sources like MIMIC that lack curated red-flags/interventions."
     },
+    "difficulty": {
+      "type": ["string", "null"],
+      "enum": ["STANDARD", "TRAP", null],
+      "description": "Pedagogical difficulty. TRAP = benign-looking presentation with a dangerous diagnosis (high under-triage risk). null/absent = standard. SERVER-SIDE ONLY: TriageCase never crosses to the client, so this field has no contract.ts mirror."
+    },
     "provenance": {
       "type": "object",
       "description": "Where this case came from and under what terms. Required for publication and attribution.",

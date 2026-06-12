@@ -47,6 +47,13 @@ class AVPU(str, Enum):
     U = "U"
 
 
+class Difficulty(str, Enum):
+    """Pedagogical difficulty tag. TRAP = benign-looking-but-dangerous."""
+
+    STANDARD = "STANDARD"
+    TRAP = "TRAP"
+
+
 class _Strict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -167,6 +174,14 @@ class TriageCase(_Strict):
             "If set, only these scoring dimensions are graded and weighted; others "
             "are excluded from normalization. None = grade all dimensions (synthetic "
             "default). Used for sources like MIMIC that lack curated red-flags/interventions."
+        ),
+    )
+    difficulty: Difficulty | None = Field(
+        default=None,
+        description=(
+            "Pedagogical difficulty. TRAP = benign-looking presentation with a "
+            "dangerous diagnosis (high under-triage risk). None/absent = standard. "
+            "Server-side only: TriageCase never crosses to the client."
         ),
     )
     provenance: Provenance
