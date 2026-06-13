@@ -134,6 +134,7 @@ const FULL_ENCOUNTER: Encounter = {
   startedAt: "2026-06-09T00:00:00Z",
   completedAt: "2026-06-09T00:05:00Z",
   traineeId: "trainee-abc",
+  cohortId: "cohort-x",
 };
 
 // A freshly-created encounter at CASE_LOAD: nulls where the model defaults to None.
@@ -160,6 +161,7 @@ const FRESH_ENCOUNTER: Encounter = {
   startedAt: "2026-06-09T00:00:00Z",
   completedAt: null,
   traineeId: null,
+  cohortId: null,
 };
 
 // A populated learning-curve report (one of each triage direction), and a zeroed

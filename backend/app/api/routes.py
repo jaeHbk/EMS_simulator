@@ -87,6 +87,13 @@ class CreateEncounterBody(_StrictBody):
             "progress analytics. Not an identity or credential."
         ),
     )
+    cohortId: str | None = Field(
+        default=None,
+        description=(
+            "Opaque cohort code to attach to this encounter for an instructor's "
+            "aggregate view. Not an identity or credential."
+        ),
+    )
 
 
 class AdvanceBody(_StrictBody):
@@ -173,12 +180,16 @@ def create_encounter(body: CreateEncounterBody | None = None) -> Encounter:
 
     An optional ``traineeId`` (opaque per-browser analytics key — not identity)
     is attached so the encounter can later be aggregated into that trainee's
-    learning-curve analytics.
+    learning-curve analytics. An optional ``cohortId`` (opaque grouping code —
+    not identity) is attached so the encounter can later be aggregated into an
+    instructor's cohort view.
     """
     settings = get_settings()
     create_body = body or CreateEncounterBody()
     case = _pick_case(create_body, settings)
-    encounter = sim.create_encounter(case, trainee_id=create_body.traineeId)
+    encounter = sim.create_encounter(
+        case, trainee_id=create_body.traineeId, cohort_id=create_body.cohortId
+    )
     store.save_encounter(encounter)
     return encounter
 

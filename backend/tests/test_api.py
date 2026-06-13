@@ -81,6 +81,7 @@ def _assert_no_expert_leak(body: dict) -> None:
         "startedAt",
         "completedAt",
         "traineeId",
+        "cohortId",
     }
     assert set(body) <= allowed, f"unexpected keys in encounter: {set(body) - allowed}"
     # Defensive: an esiRationale string would be the most likely leak vector.
@@ -399,6 +400,29 @@ def test_invalid_esi_value_is_422(client: TestClient) -> None:
     client.post(f"/api/encounters/{eid}/advance", json={"to": "ESI_ASSIGNMENT"})
     resp = client.post(f"/api/encounters/{eid}/esi", json={"esi": 9})
     assert resp.status_code == 422, resp.text
+
+
+def test_create_encounter_attaches_cohort_id(client: TestClient) -> None:
+    """An optional ``cohortId`` round-trips onto the created encounter's wire form.
+
+    It is an opaque grouping code (not identity/credential) and never leaks any
+    expert label by carrying it.
+    """
+    resp = client.post(
+        "/api/encounters",
+        json={"sources": ["synthetic"], "seed": 5, "cohortId": "cohort-x"},
+    )
+    assert resp.status_code == 200, resp.text
+    enc = resp.json()
+    assert enc["cohortId"] == "cohort-x"
+    _assert_no_expert_leak(enc)
+
+
+def test_create_encounter_cohort_id_defaults_to_none(client: TestClient) -> None:
+    """With no ``cohortId`` in the body the encounter has no cohort association."""
+    resp = client.post("/api/encounters", json={"sources": ["synthetic"], "seed": 6})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["cohortId"] is None
 
 
 # ---------------------------------------------------------------------------

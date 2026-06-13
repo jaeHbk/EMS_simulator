@@ -32,7 +32,12 @@ from app.models import (
 from app.models.encounter import Role
 from app.models.score import DimensionKey, EsiResult
 from app.models.triage_case import AVPU
-from app.store import get_encounter, init_db, save_encounter
+from app.store import (
+    get_encounter,
+    init_db,
+    list_encounters_by_cohort,
+    save_encounter,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -266,3 +271,59 @@ def test_memory_round_trip_still_works() -> None:
     enc = make_full_encounter()
     save_encounter(enc)
     assert get_encounter(enc.encounterId) == enc
+
+
+def test_list_encounters_by_cohort_filters_and_orders() -> None:
+    """``list_encounters_by_cohort`` returns only the matching cohort's encounters,
+    oldest first by ``startedAt`` (with ``None`` sorting first)."""
+    # Two encounters in cohort-x with distinct startedAt (out of order on insert),
+    # one in a different cohort, and one with no cohort association at all.
+    later = Encounter(
+        encounterId="cx-later",
+        caseId="case-x",
+        cohortId="cohort-x",
+        startedAt=datetime(2026, 6, 9, 12, 30, 0, tzinfo=UTC),
+    )
+    earlier = Encounter(
+        encounterId="cx-earlier",
+        caseId="case-x",
+        cohortId="cohort-x",
+        startedAt=datetime(2026, 6, 9, 12, 0, 0, tzinfo=UTC),
+    )
+    other_cohort = Encounter(
+        encounterId="cy-1",
+        caseId="case-x",
+        cohortId="cohort-y",
+        startedAt=datetime(2026, 6, 9, 11, 0, 0, tzinfo=UTC),
+    )
+    no_cohort = Encounter(encounterId="nc-1", caseId="case-x")
+
+    # Save in a non-sorted order to prove the query sorts, not the insert order.
+    for enc in (later, other_cohort, earlier, no_cohort):
+        save_encounter(enc)
+
+    result = list_encounters_by_cohort("cohort-x")
+    # Only the two cohort-x encounters, oldest (earlier) first.
+    assert [enc.encounterId for enc in result] == ["cx-earlier", "cx-later"]
+    assert all(enc.cohortId == "cohort-x" for enc in result)
+
+    # An unknown cohort yields no encounters (never raises).
+    assert list_encounters_by_cohort("cohort-none") == []
+
+
+def test_list_encounters_by_cohort_none_started_at_sorts_first() -> None:
+    """An encounter with ``startedAt is None`` sorts first within its cohort."""
+    none_started = Encounter(
+        encounterId="cz-none", caseId="case-x", cohortId="cohort-z"
+    )
+    started = Encounter(
+        encounterId="cz-started",
+        caseId="case-x",
+        cohortId="cohort-z",
+        startedAt=datetime(2026, 6, 9, 12, 0, 0, tzinfo=UTC),
+    )
+    save_encounter(started)
+    save_encounter(none_started)
+
+    result = list_encounters_by_cohort("cohort-z")
+    assert [enc.encounterId for enc in result] == ["cz-none", "cz-started"]

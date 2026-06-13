@@ -64,7 +64,11 @@ def _require_stage(enc: Encounter, expected: Stage, action: str) -> None:
         )
 
 
-def create_encounter(case: TriageCase, trainee_id: str | None = None) -> Encounter:
+def create_encounter(
+    case: TriageCase,
+    trainee_id: str | None = None,
+    cohort_id: str | None = None,
+) -> Encounter:
     """Create a fresh Encounter for ``case`` at the CASE_LOAD stage.
 
     Copies the chief complaint and stamps ``startedAt``. Critically, it copies
@@ -74,6 +78,10 @@ def create_encounter(case: TriageCase, trainee_id: str | None = None) -> Encount
     ``trainee_id`` is an OPAQUE per-browser learner id used only to group
     encounters for progress analytics — it is not an identity or credential.
     When unset (the default), the encounter has no trainee association.
+
+    ``cohort_id`` is an OPAQUE cohort code used only to group encounters for an
+    instructor's aggregate view — it is not an identity or credential. When unset
+    (the default), the encounter has no cohort association.
     """
     return Encounter(
         encounterId=str(uuid.uuid4()),
@@ -82,6 +90,7 @@ def create_encounter(case: TriageCase, trainee_id: str | None = None) -> Encount
         chiefComplaint=case.presentation.chiefComplaint,
         startedAt=_now(),
         traineeId=trainee_id,
+        cohortId=cohort_id,
     )
 
 

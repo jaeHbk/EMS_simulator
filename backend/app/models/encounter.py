@@ -70,3 +70,7 @@ class Encounter(_Strict):
     # credential — purely an analytics grouping key. Optional/nullable so existing
     # producers (and the wire format) are unaffected when it is unset.
     traineeId: str | None = None
+    # Opaque cohort code grouping encounters for an instructor's aggregate view.
+    # NOT an identity or credential — purely a grouping key. Optional/nullable so
+    # existing producers (and the wire format) are unaffected when it is unset.
+    cohortId: str | None = None

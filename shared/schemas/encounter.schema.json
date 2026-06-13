@@ -47,6 +47,7 @@
     },
     "startedAt": { "type": ["string", "null"], "format": "date-time" },
     "completedAt": { "type": ["string", "null"], "format": "date-time" },
-    "traineeId": { "type": ["string", "null"], "description": "Opaque per-browser learner id for progress analytics. Not an identity or credential." }
+    "traineeId": { "type": ["string", "null"], "description": "Opaque per-browser learner id for progress analytics. Not an identity or credential." },
+    "cohortId": { "type": ["string", "null"], "description": "Opaque cohort code grouping encounters for an instructor's aggregate view. Not an identity or credential." }
   }
 }

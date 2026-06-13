@@ -108,6 +108,11 @@ export interface Encounter {
   // mirroring its absence from the schema's `required` list and the Pydantic
   // model's `None` default.
   traineeId?: string | null;
+  // Opaque cohort code grouping encounters for an instructor's aggregate view.
+  // Not an identity or credential. Optional on the wire (omitted by producers
+  // that don't set it), mirroring its absence from the schema's `required` list
+  // and the Pydantic model's `None` default.
+  cohortId?: string | null;
 }
 
 // One scored encounter's contribution to a trainee's learning curve.
