@@ -33,6 +33,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app import config  # noqa: E402
 from app.data import registry as data_registry  # noqa: E402
+from app.observability import reset_metrics, snapshot  # noqa: E402
 
 # Forbidden keys: anything that would leak the hidden expert labels to the client
 # before the FEEDBACK stage.
@@ -45,6 +46,9 @@ def client() -> Iterator[TestClient]:
     # Reset cached settings so the env above is picked up deterministically.
     config._settings = None
     data_registry.clear_cache()
+    # The LLM metrics accumulator is process-global; zero it so per-test
+    # assertions don't see counts leaked in from earlier tests in the suite.
+    reset_metrics()
 
     from app.main import app  # imported here so it builds against the test env
 
@@ -91,6 +95,51 @@ def test_health() -> None:
         resp = c.get("/api/health")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
+
+
+def test_response_carries_request_id_header(client: TestClient) -> None:
+    """Every response echoes an X-Request-ID correlation header (auto-minted)."""
+    resp = client.get("/api/health")
+    assert resp.status_code == 200
+    request_id = resp.headers.get("X-Request-ID")
+    assert request_id, "middleware must stamp an X-Request-ID response header"
+    assert request_id != "-"
+
+
+def test_inbound_request_id_is_echoed(client: TestClient) -> None:
+    """An inbound X-Request-ID is preserved on the response (end-to-end tracing)."""
+    resp = client.get("/api/health", headers={"X-Request-ID": "trace-xyz"})
+    assert resp.status_code == 200
+    assert resp.headers.get("X-Request-ID") == "trace-xyz"
+
+
+def test_local_provider_path_records_llm_metrics(client: TestClient) -> None:
+    """The offline LocalProvider records a metric for each complete() call.
+
+    The /history route's patient_reply short-circuits to a scripted reply for the
+    LocalProvider (so it never calls provider.complete), so we exercise the
+    instrumented seam directly: the provider the route would use. This proves the
+    local provider path — not just the cloud path — feeds the metrics accumulator.
+    """
+    import asyncio
+
+    from app import llm
+    from app.config import get_settings
+
+    reset_metrics()
+    before = snapshot()["calls"]
+
+    provider = llm.get_provider(get_settings())
+    assert isinstance(provider, llm.LocalProvider)
+    reply = asyncio.run(
+        provider.complete("system", [{"role": "user", "content": "Any pain?"}])
+    )
+    assert reply, "the local provider must return a non-empty reply"
+
+    after = snapshot()
+    assert after["calls"] == before + 1, "local provider.complete must record a call"
+    assert after["failures"] == 0
+    assert after["total_completion_chars"] == len(reply)
 
 
 def test_full_encounter_walk(client: TestClient) -> None:

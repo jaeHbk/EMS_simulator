@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # Persistence
     database_url: str = "sqlite:///./ed_triage.sqlite3"
 
+    # Observability. Standard logging level name (DEBUG/INFO/WARNING/...).
+    log_level: str = "INFO"
+
     # Comma-separated browser origins allowed by CORS. Defaults to the Vite dev
     # origins; set to your deployed frontend URL(s) in production.
     cors_allow_origins: str = "http://localhost:5173,http://127.0.0.1:5173"

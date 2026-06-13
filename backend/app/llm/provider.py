@@ -16,10 +16,12 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
 from collections.abc import Awaitable, Callable
 from typing import Protocol, runtime_checkable
 
 from app.config import Settings
+from app.observability import record_llm_call
 
 
 class LLMUnavailableError(RuntimeError):
@@ -53,6 +55,53 @@ async def _with_resilience(
         except Exception as exc:  # noqa: BLE001 - normalize every failure mode
             last = exc
     raise LLMUnavailableError(str(last) if last else "LLM call failed")
+
+
+def _prompt_chars(system: str, messages: list[dict[str, str]]) -> int:
+    """Approximate prompt size: system prompt + every message's content length.
+
+    A char count is a network-free proxy for token usage / spend (real token
+    counts would need provider-SDK usage data, which the offline provider lacks).
+    """
+    return len(system) + sum(len(message.get("content", "")) for message in messages)
+
+
+async def _timed_complete(
+    provider_name: str,
+    coro_factory: Callable[[], Awaitable[str]],
+    *,
+    prompt_chars: int,
+) -> str:
+    """Run one logical ``complete`` and record exactly one metric for it.
+
+    Every provider's ``complete`` (local AND cloud) funnels through here so LLM
+    cost/latency metrics are uniform regardless of which provider served the call.
+    For cloud providers ``coro_factory`` is the resilient (retrying) call, so one
+    invocation == one logical completion and the recorded outcome is the final one:
+    a success, or an :class:`LLMUnavailableError` after retries. On failure we
+    record ``ok=False`` exactly once (with ``completion_chars=0``) and re-raise so
+    the graceful-degradation fallbacks in patient.py / feedback.py still trigger.
+    """
+    start = time.perf_counter()
+    try:
+        result = await coro_factory()
+    except Exception:
+        record_llm_call(
+            provider=provider_name,
+            latency_s=time.perf_counter() - start,
+            ok=False,
+            prompt_chars=prompt_chars,
+            completion_chars=0,
+        )
+        raise
+    record_llm_call(
+        provider=provider_name,
+        latency_s=time.perf_counter() - start,
+        ok=True,
+        prompt_chars=prompt_chars,
+        completion_chars=len(result),
+    )
+    return result
 
 
 @runtime_checkable
@@ -89,7 +138,7 @@ class LocalProvider:
     called directly.
     """
 
-    async def complete(self, system: str, messages: list[dict[str, str]]) -> str:
+    async def _call(self, system: str, messages: list[dict[str, str]]) -> str:
         question = _last_user_message(messages).strip()
         if not question:
             return "I'm here. What would you like to ask me?"
@@ -106,6 +155,15 @@ class LocalProvider:
         if re.search(r"allerg", lowered):
             return "I can tell you about my allergies when you ask."
         return "I'll do my best to answer what you ask me directly."
+
+    async def complete(self, system: str, messages: list[dict[str, str]]) -> str:
+        # Local has no _with_resilience layer, so it gets wrapped directly here —
+        # ensuring metrics are recorded for the offline provider too.
+        return await _timed_complete(
+            "local",
+            lambda: self._call(system, messages),
+            prompt_chars=_prompt_chars(system, messages),
+        )
 
 
 class AnthropicProvider:
@@ -140,8 +198,15 @@ class AnthropicProvider:
         return "".join(parts)
 
     async def complete(self, system: str, messages: list[dict[str, str]]) -> str:
-        return await _with_resilience(
-            lambda: self._call(system, messages), timeout=self._timeout
+        # Record around the *resilient* call so one logical complete == one metric,
+        # capturing the final outcome (incl. LLMUnavailableError after retries as a
+        # failure). _timed_complete re-raises so graceful degradation still works.
+        return await _timed_complete(
+            "anthropic",
+            lambda: _with_resilience(
+                lambda: self._call(system, messages), timeout=self._timeout
+            ),
+            prompt_chars=_prompt_chars(system, messages),
         )
 
 
@@ -177,8 +242,15 @@ class OpenAIProvider:
         return response.choices[0].message.content or ""
 
     async def complete(self, system: str, messages: list[dict[str, str]]) -> str:
-        return await _with_resilience(
-            lambda: self._call(system, messages), timeout=self._timeout
+        # Record around the *resilient* call so one logical complete == one metric,
+        # capturing the final outcome (incl. LLMUnavailableError after retries as a
+        # failure). _timed_complete re-raises so graceful degradation still works.
+        return await _timed_complete(
+            "openai",
+            lambda: _with_resilience(
+                lambda: self._call(system, messages), timeout=self._timeout
+            ),
+            prompt_chars=_prompt_chars(system, messages),
         )
 
 
