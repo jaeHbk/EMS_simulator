@@ -1,0 +1,73 @@
+{
+  "caseId": "synthetic:trap-posterior-stroke-012",
+  "source": "synthetic",
+  "difficulty": "TRAP",
+  "demographics": { "ageBand": "65-74", "sex": "male" },
+  "presentation": {
+    "chiefComplaint": "Dizziness and feeling off balance",
+    "history": {
+      "hpi": "Sudden onset of constant dizziness about two hours ago with nausea and one episode of vomiting. He describes the room feeling unsteady and has been unable to walk without veering to one side. He also mentions brief double vision. He thinks it is just vertigo or an inner-ear problem and wants something for the nausea.",
+      "pmh": ["Hypertension", "Atrial fibrillation", "Hyperlipidemia"],
+      "medications": ["Apixaban (admits he often forgets it)", "Atorvastatin"],
+      "allergies": ["None known"],
+      "socialHistory": "Retired; lives with spouse.",
+      "redFlags": [
+        "Sudden-onset persistent vertigo with inability to walk (central, not peripheral)",
+        "Posterior-circulation stroke warning signs: diplopia and gait ataxia",
+        "High vascular risk: atrial fibrillation with poor anticoagulation adherence",
+        "Time-critical: within the acute stroke treatment window"
+      ],
+      "redFlagConcepts": [
+        {
+          "flag": "Sudden-onset persistent vertigo with inability to walk (central, not peripheral)",
+          "anchors": ["sudden", "onset", "started", "abrupt", "walk", "walking", "gait", "balance", "stand", "veering", "unsteady"],
+          "any": ["sudden", "abrupt", "walk", "walking", "gait", "balance", "veering", "unsteady", "stand"]
+        },
+        {
+          "flag": "Posterior-circulation stroke warning signs: diplopia and gait ataxia",
+          "anchors": ["double", "vision", "diplopia", "blurred", "speech", "slurred", "weakness", "numb", "numbness", "face", "coordination", "ataxia", "neuro", "neurological"],
+          "any": ["double", "vision", "diplopia", "speech", "slurred", "weakness", "numb", "coordination", "ataxia", "face"]
+        },
+        {
+          "flag": "High vascular risk: atrial fibrillation with poor anticoagulation adherence",
+          "anchors": ["fibrillation", "afib", "arrhythmia", "blood", "thinner", "anticoagulant", "apixaban", "warfarin", "missed", "forget", "forgets", "adherence", "stroke", "history"],
+          "any": ["fibrillation", "afib", "thinner", "anticoagulant", "apixaban", "missed", "forget", "stroke"]
+        },
+        {
+          "flag": "Time-critical: within the acute stroke treatment window",
+          "anchors": ["onset", "started", "began", "hours", "time", "window", "when", "ago", "last", "well"],
+          "any": ["onset", "started", "began", "hours", "time", "ago", "when"]
+        }
+      ]
+    },
+    "groundTruthVitals": {
+      "heartRate": 88,
+      "systolicBP": 162,
+      "diastolicBP": 94,
+      "respiratoryRate": 18,
+      "spo2": 97,
+      "temperatureC": 36.8,
+      "painScore": 1,
+      "glucose": 112,
+      "avpu": "A"
+    }
+  },
+  "expert": {
+    "esi": 2,
+    "esiRationale": "The trap: 'dizziness' with normal vital signs reads like benign peripheral vertigo and is easily under-triaged to ESI 3 or lower. But sudden-onset persistent vertigo with gait ataxia and diplopia in a 70-year-old with atrial fibrillation and missed anticoagulation is a posterior-circulation stroke until proven otherwise — a high-risk, time-critical presentation inside the treatment window. ESI 2; do not wait. Vitals are deliberately near-normal, so acuity must come from the history, not the numbers.",
+    "requiresLifeSaving": false,
+    "isHighRisk": true,
+    "criticalInterventions": ["NEURO_CHECK", "ECG", "CARDIAC_MONITOR", "IV_ACCESS", "GLUCOSE_CHECK"],
+    "resourcesPredicted": 5
+  },
+  "outcome": {
+    "disposition": "ADMIT",
+    "edLengthOfStayMinutes": 280,
+    "diagnosisCategories": ["Ischemic stroke", "Posterior circulation"]
+  },
+  "provenance": {
+    "license": "synthetic-generated",
+    "deidentified": true,
+    "sourceRef": "ED Triage Trainer hand-authored calibration-trap case"
+  }
+}

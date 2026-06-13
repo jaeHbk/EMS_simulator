@@ -1,0 +1,73 @@
+{
+  "caseId": "synthetic:trap-nstemi-epigastric-013",
+  "source": "synthetic",
+  "difficulty": "TRAP",
+  "demographics": { "ageBand": "55-64", "sex": "female" },
+  "presentation": {
+    "chiefComplaint": "Indigestion and burning in the upper stomach",
+    "history": {
+      "hpi": "A few hours of epigastric burning she attributes to a heavy meal, with nausea and a clammy, sweaty feeling. She denies classic chest pain but admits the discomfort is heavier when she walks to the bathroom and eases with rest. She took an antacid without relief. She is a diabetic, which can blunt typical cardiac pain.",
+      "pmh": ["Type 2 diabetes", "Hypertension", "Former smoker"],
+      "medications": ["Metformin", "Lisinopril"],
+      "allergies": ["None known"],
+      "socialHistory": "Quit smoking 3 years ago; family history of early myocardial infarction.",
+      "redFlags": [
+        "Atypical cardiac presentation: epigastric discomfort with diaphoresis in a diabetic woman",
+        "Exertional component relieved by rest (anginal equivalent)",
+        "Multiple cardiac risk factors: diabetes, hypertension, smoking, family history",
+        "Needs an immediate ECG and troponin despite the absence of classic chest pain"
+      ],
+      "redFlagConcepts": [
+        {
+          "flag": "Atypical cardiac presentation: epigastric discomfort with diaphoresis in a diabetic woman",
+          "anchors": ["sweaty", "sweating", "diaphoresis", "clammy", "nausea", "nauseous", "vomit", "short", "breath", "breathing", "jaw", "arm", "shoulder", "radiate", "radiating"],
+          "any": ["sweaty", "sweating", "diaphoresis", "clammy", "nausea", "breath", "jaw", "arm", "shoulder", "radiate"]
+        },
+        {
+          "flag": "Exertional component relieved by rest (anginal equivalent)",
+          "anchors": ["exertion", "exertional", "walk", "walking", "activity", "rest", "resting", "worse", "better", "eases", "relieved", "moving"],
+          "any": ["exertion", "walk", "walking", "activity", "rest", "eases", "relieved", "moving"]
+        },
+        {
+          "flag": "Multiple cardiac risk factors: diabetes, hypertension, smoking, family history",
+          "anchors": ["diabetes", "diabetic", "hypertension", "pressure", "smoke", "smoker", "smoking", "family", "history", "cholesterol", "heart", "cardiac", "risk"],
+          "any": ["diabetes", "diabetic", "hypertension", "smoke", "smoker", "family", "heart", "cardiac"]
+        },
+        {
+          "flag": "Needs an immediate ECG and troponin despite the absence of classic chest pain",
+          "anchors": ["ecg", "ekg", "troponin", "cardiac", "heart", "enzymes", "monitor", "rhythm"],
+          "any": ["ecg", "ekg", "troponin", "cardiac", "heart", "enzymes", "monitor"]
+        }
+      ]
+    },
+    "groundTruthVitals": {
+      "heartRate": 92,
+      "systolicBP": 148,
+      "diastolicBP": 88,
+      "respiratoryRate": 18,
+      "spo2": 97,
+      "temperatureC": 36.9,
+      "painScore": 5,
+      "glucose": 210,
+      "avpu": "A"
+    }
+  },
+  "expert": {
+    "esi": 2,
+    "esiRationale": "The trap: 'indigestion' with normal vitals invites an ESI 3 (or lower) GI workup. But epigastric discomfort with diaphoresis, an exertional/relieved-by-rest pattern, and multiple cardiac risk factors in a diabetic woman is a classic atypical ACS/NSTEMI presentation — women and diabetics frequently lack classic chest pain. This is high-risk and time-critical (door-to-ECG), so ESI 2. Vitals are near-normal by design; the acuity is in the story.",
+    "requiresLifeSaving": false,
+    "isHighRisk": true,
+    "criticalInterventions": ["ECG", "CARDIAC_MONITOR", "IV_ACCESS", "ANALGESIA", "OXYGEN"],
+    "resourcesPredicted": 5
+  },
+  "outcome": {
+    "disposition": "ADMIT",
+    "edLengthOfStayMinutes": 260,
+    "diagnosisCategories": ["Non-ST-elevation myocardial infarction", "Acute coronary syndrome"]
+  },
+  "provenance": {
+    "license": "synthetic-generated",
+    "deidentified": true,
+    "sourceRef": "ED Triage Trainer hand-authored calibration-trap case"
+  }
+}

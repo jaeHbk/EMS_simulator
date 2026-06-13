@@ -1,0 +1,73 @@
+{
+  "caseId": "synthetic:trap-dka-015",
+  "source": "synthetic",
+  "difficulty": "TRAP",
+  "demographics": { "ageBand": "18-24", "sex": "male" },
+  "presentation": {
+    "chiefComplaint": "Tired, nauseated, and breathing a bit fast",
+    "history": {
+      "hpi": "A young adult with a day of fatigue, nausea, and a couple of episodes of vomiting that he blames on a stomach bug. On questioning he has been extremely thirsty, urinating frequently, and his breathing feels deep and rapid. A friend thought his breath smelled fruity. He recently ran out of his insulin.",
+      "pmh": ["Type 1 diabetes"],
+      "medications": ["Insulin (ran out a few days ago)"],
+      "allergies": ["None known"],
+      "socialHistory": "College student; no alcohol or drugs today.",
+      "redFlags": [
+        "Diabetic ketoacidosis: polyuria, polydipsia, vomiting with insulin omission",
+        "Kussmaul respirations — deep rapid breathing is respiratory compensation, not anxiety",
+        "Fruity (ketotic) breath odor",
+        "Needs immediate glucose, ketones, and IV fluids"
+      ],
+      "redFlagConcepts": [
+        {
+          "flag": "Diabetic ketoacidosis: polyuria, polydipsia, vomiting with insulin omission",
+          "anchors": ["thirsty", "thirst", "drinking", "urinate", "urinating", "urine", "pee", "frequency", "insulin", "diabetes", "diabetic", "sugar", "glucose", "ran", "out", "missed", "skipped"],
+          "any": ["thirsty", "thirst", "urinate", "urinating", "pee", "insulin", "diabetes", "diabetic", "sugar", "glucose", "missed", "ran"]
+        },
+        {
+          "flag": "Kussmaul respirations — deep rapid breathing is respiratory compensation, not anxiety",
+          "anchors": ["breathing", "breaths", "breath", "respiratory", "respiration", "rapid", "deep", "fast", "panting", "kussmaul"],
+          "any": ["breathing", "breaths", "breath", "respiratory", "rapid", "deep", "fast"]
+        },
+        {
+          "flag": "Fruity (ketotic) breath odor",
+          "anchors": ["fruity", "breath", "odor", "smell", "smelled", "acetone", "ketone", "ketones", "sweet"],
+          "any": ["fruity", "odor", "smell", "smelled", "acetone", "ketone", "sweet"]
+        },
+        {
+          "flag": "Needs immediate glucose, ketones, and IV fluids",
+          "anchors": ["glucose", "sugar", "ketone", "ketones", "fluids", "fluid", "insulin", "iv", "drip"],
+          "any": ["glucose", "sugar", "ketone", "ketones", "fluids", "insulin", "iv"]
+        }
+      ]
+    },
+    "groundTruthVitals": {
+      "heartRate": 112,
+      "systolicBP": 116,
+      "diastolicBP": 72,
+      "respiratoryRate": 28,
+      "spo2": 98,
+      "temperatureC": 36.7,
+      "painScore": 3,
+      "glucose": 480,
+      "avpu": "A"
+    }
+  },
+  "expert": {
+    "esi": 2,
+    "esiRationale": "The trap: 'tired and nauseated, probably a stomach bug' with a near-normal blood pressure and SpO2 invites ESI 3. But a type-1 diabetic who ran out of insulin, with polyuria, polydipsia, fruity breath, a markedly elevated glucose, and a danger-zone respiratory rate (28 = Kussmaul respiration) is in diabetic ketoacidosis — high-risk and time-critical for fluids and an insulin infusion. ESI 2. The tachypnea is the key objective danger-zone vital a good triage will measure and recognize.",
+    "requiresLifeSaving": false,
+    "isHighRisk": true,
+    "criticalInterventions": ["GLUCOSE_CHECK", "IV_ACCESS", "FLUID_BOLUS", "CARDIAC_MONITOR"],
+    "resourcesPredicted": 5
+  },
+  "outcome": {
+    "disposition": "ICU",
+    "edLengthOfStayMinutes": 290,
+    "diagnosisCategories": ["Diabetic ketoacidosis"]
+  },
+  "provenance": {
+    "license": "synthetic-generated",
+    "deidentified": true,
+    "sourceRef": "ED Triage Trainer hand-authored calibration-trap case"
+  }
+}

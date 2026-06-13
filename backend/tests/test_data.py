@@ -145,6 +145,29 @@ def test_synthetic_seed_cases_have_red_flags_and_rationale() -> None:
         assert isinstance(case.presentation.history.redFlags, list)
 
 
+def test_calibration_trap_cases_present_and_well_formed() -> None:
+    """The calibration-trap bank: benign-looking presentations with a dangerous
+    diagnosis, where acuity must come from the history. Each is tagged TRAP, is
+    de-identified, and carries red flags + concept keywords so history-taking is
+    scored. (Label correctness vs the cited ESI v4 algorithm is enforced by
+    test_every_synthetic_case_agrees_with_cited_algorithm.)"""
+    traps = [c for c in synthetic.load_seed_cases() if c.difficulty == "TRAP"]
+    assert len(traps) >= 6, f"expected >= 6 calibration-trap cases, got {len(traps)}"
+    for case in traps:
+        assert case.provenance.deidentified is True
+        assert not case.demographics.ageBand.isdigit(), "age must be a band, not exact"
+        assert case.presentation.history.redFlags, f"{case.caseId} has no red flags"
+        assert case.presentation.history.redFlagConcepts, (
+            f"{case.caseId} has no red-flag concepts (history would be unscorable by concept)"
+        )
+        # Every concept must reference a real red-flag label (a typo'd flag is a dead concept).
+        labels = set(case.presentation.history.redFlags)
+        for concept in case.presentation.history.redFlagConcepts:
+            assert concept.flag in labels, (
+                f"{case.caseId}: concept flag {concept.flag!r} not in redFlags"
+            )
+
+
 def test_synthetic_includes_outcomes_for_some_cases() -> None:
     cases = synthetic.load()
     assert any(c.outcome is not None for c in cases), "some cases must carry outcomes"

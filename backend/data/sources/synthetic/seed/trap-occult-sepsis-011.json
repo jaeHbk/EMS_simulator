@@ -1,0 +1,73 @@
+{
+  "caseId": "synthetic:trap-occult-sepsis-011",
+  "source": "synthetic",
+  "difficulty": "TRAP",
+  "demographics": { "ageBand": "75-84", "sex": "female" },
+  "presentation": {
+    "chiefComplaint": "Just feeling weak and off for a day",
+    "history": {
+      "hpi": "An elderly woman brought by family for feeling 'washed out' and not herself since yesterday. No localizing complaint at first; on questioning she has had mild burning with urination and one episode of feeling cold and shivery. Family notes she is a little more muddled than usual and has eaten little. She looks deceptively well and is conversational.",
+      "pmh": ["Type 2 diabetes", "Hypertension"],
+      "medications": ["Metformin", "Amlodipine"],
+      "allergies": ["None known"],
+      "socialHistory": "Lives with her daughter; normally fully independent.",
+      "redFlags": [
+        "Subtle altered mental status from baseline (more muddled than usual)",
+        "Occult infection source: dysuria with rigors in a diabetic",
+        "Early sepsis despite near-normal-looking vitals (immunosenescence blunts the response)",
+        "Borderline tachypnea is the earliest objective sepsis sign"
+      ],
+      "redFlagConcepts": [
+        {
+          "flag": "Subtle altered mental status from baseline (more muddled than usual)",
+          "anchors": ["confused", "confusion", "muddled", "foggy", "off", "drowsy", "lethargic", "baseline", "themselves", "herself", "behaving", "mental", "orientation"],
+          "any": ["confused", "confusion", "muddled", "foggy", "off", "drowsy", "lethargic", "baseline", "herself", "behaving", "self"]
+        },
+        {
+          "flag": "Occult infection source: dysuria with rigors in a diabetic",
+          "anchors": ["urine", "urinary", "urinate", "urinating", "pee", "dysuria", "burning", "fever", "fevers", "temperature", "chills", "rigors", "shivery", "cold", "infection", "source"],
+          "any": ["urine", "urinary", "urinate", "dysuria", "burning", "fever", "chills", "rigors", "shivery", "infection"]
+        },
+        {
+          "flag": "Early sepsis despite near-normal-looking vitals (immunosenescence blunts the response)",
+          "anchors": ["sepsis", "septic", "infection", "unwell", "intake", "eating", "drinking", "oral", "urine", "output"],
+          "any": ["sepsis", "septic", "infection", "intake", "eating", "drinking", "output"]
+        },
+        {
+          "flag": "Borderline tachypnea is the earliest objective sepsis sign",
+          "anchors": ["breathing", "breaths", "respiratory", "respiration", "tachypnea", "fast", "rate"],
+          "any": ["breathing", "breaths", "respiratory", "tachypnea"]
+        }
+      ]
+    },
+    "groundTruthVitals": {
+      "heartRate": 96,
+      "systolicBP": 108,
+      "diastolicBP": 66,
+      "respiratoryRate": 22,
+      "spo2": 95,
+      "temperatureC": 37.6,
+      "painScore": 2,
+      "glucose": 184,
+      "avpu": "A"
+    }
+  },
+  "expert": {
+    "esi": 2,
+    "esiRationale": "The trap: vitals look almost reassuring (HR 96, SBP 108, temp 37.6) and she is conversational, so she is easily under-triaged to ESI 3. But she is an elderly diabetic with a new altered mental status, an occult urinary source with rigors, and a danger-zone respiratory rate (22) — the earliest objective sign of evolving sepsis. This is a high-risk, time-critical presentation (sepsis bundle) that should not wait: ESI 2. Under-triage delays antibiotics and fluids while she decompensates.",
+    "requiresLifeSaving": false,
+    "isHighRisk": true,
+    "criticalInterventions": ["IV_ACCESS", "FLUID_BOLUS", "ANTIBIOTICS", "GLUCOSE_CHECK", "CARDIAC_MONITOR"],
+    "resourcesPredicted": 5
+  },
+  "outcome": {
+    "disposition": "ADMIT",
+    "edLengthOfStayMinutes": 300,
+    "diagnosisCategories": ["Sepsis", "Urinary tract infection"]
+  },
+  "provenance": {
+    "license": "synthetic-generated",
+    "deidentified": true,
+    "sourceRef": "ED Triage Trainer hand-authored calibration-trap case"
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "caseId": "synthetic:trap-ectopic-014",
+  "source": "synthetic",
+  "difficulty": "TRAP",
+  "demographics": { "ageBand": "25-34", "sex": "female" },
+  "presentation": {
+    "chiefComplaint": "Lower belly pain and a bit of spotting",
+    "history": {
+      "hpi": "A woman of reproductive age with one day of crampy left lower abdominal pain and light vaginal spotting. She assumes it is a bad period, though her last period was about seven weeks ago and lighter than usual. She felt briefly lightheaded standing up and has a vague ache in her right shoulder. She is not on reliable contraception.",
+      "pmh": ["Prior chlamydia infection (treated)"],
+      "medications": ["None"],
+      "allergies": ["None known"],
+      "socialHistory": "Sexually active; uses condoms inconsistently.",
+      "redFlags": [
+        "Possible ectopic pregnancy: childbearing age with abdominal pain and a late/abnormal period",
+        "Referred shoulder-tip pain suggesting intraperitoneal blood (diaphragmatic irritation)",
+        "Orthostatic lightheadedness — early sign of intra-abdominal bleeding",
+        "Mandatory pregnancy test before any other workup"
+      ],
+      "redFlagConcepts": [
+        {
+          "flag": "Possible ectopic pregnancy: childbearing age with abdominal pain and a late/abnormal period",
+          "anchors": ["period", "periods", "menstrual", "menses", "pregnant", "pregnancy", "lmp", "late", "missed", "contraception", "birth", "control", "sexually", "active"],
+          "any": ["period", "menstrual", "pregnant", "pregnancy", "late", "missed", "contraception", "sexually"]
+        },
+        {
+          "flag": "Referred shoulder-tip pain suggesting intraperitoneal blood (diaphragmatic irritation)",
+          "anchors": ["shoulder", "tip", "referred", "radiate", "radiating", "spread"],
+          "any": ["shoulder", "tip", "referred", "radiate", "spread"]
+        },
+        {
+          "flag": "Orthostatic lightheadedness — early sign of intra-abdominal bleeding",
+          "anchors": ["lightheaded", "light-headed", "dizzy", "dizziness", "faint", "fainting", "standing", "stood", "stand", "bleed", "bleeding", "blood", "spotting"],
+          "any": ["lightheaded", "dizzy", "faint", "standing", "stood", "bleed", "bleeding", "spotting"]
+        },
+        {
+          "flag": "Mandatory pregnancy test before any other workup",
+          "anchors": ["pregnancy", "pregnant", "hcg", "beta", "test", "urine", "ultrasound"],
+          "any": ["pregnancy", "pregnant", "hcg", "test", "ultrasound"]
+        }
+      ]
+    },
+    "groundTruthVitals": {
+      "heartRate": 104,
+      "systolicBP": 110,
+      "diastolicBP": 68,
+      "respiratoryRate": 18,
+      "spo2": 99,
+      "temperatureC": 37.0,
+      "painScore": 6,
+      "glucose": 92,
+      "avpu": "A"
+    }
+  },
+  "expert": {
+    "esi": 2,
+    "esiRationale": "The trap: a young woman with mild abdominal pain and spotting and a soft blood pressure is easily under-triaged to ESI 3 as 'period pain.' But a late/abnormal period in a sexually active woman with referred shoulder-tip pain and orthostatic lightheadedness is a possible ruptured ectopic pregnancy — immediately life-threatening intra-abdominal bleeding. High-risk, time-critical (pregnancy test + ultrasound + type-and-screen): ESI 2. The borderline tachycardia and low-normal BP are the only objective hints; the acuity lives in the history.",
+    "requiresLifeSaving": false,
+    "isHighRisk": true,
+    "criticalInterventions": ["IV_ACCESS", "FLUID_BOLUS", "CARDIAC_MONITOR"],
+    "resourcesPredicted": 5
+  },
+  "outcome": {
+    "disposition": "OR",
+    "edLengthOfStayMinutes": 210,
+    "diagnosisCategories": ["Ectopic pregnancy", "Hemoperitoneum"]
+  },
+  "provenance": {
+    "license": "synthetic-generated",
+    "deidentified": true,
+    "sourceRef": "ED Triage Trainer hand-authored calibration-trap case"
+  }
+}
