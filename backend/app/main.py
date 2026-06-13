@@ -21,6 +21,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import store
+from app.api import APP_VERSION
 from app.api import router as api_router
 from app.config import get_settings
 from app.observability import configure_logging, get_logger, request_id_var
@@ -52,7 +53,7 @@ def create_app() -> FastAPI:
             "Backend for the ED Triage Trainer — a training tool, not a medical "
             "device. Drives a server-enforced triage encounter state machine."
         ),
-        version="0.1.0",
+        version=APP_VERSION,
         lifespan=lifespan,
     )
 
@@ -100,9 +101,20 @@ def create_app() -> FastAPI:
         finally:
             request_id_var.reset(token)
 
-    app.include_router(api_router)
+    # Mount the SAME router under BOTH prefixes. The router itself carries no
+    # prefix (see app/api/routes.py), so every route is reachable at both:
+    #   * /api/...     — unversioned, back-compat alias the current frontend calls
+    #                    (frontend API_BASE == "/api"); must keep working untouched.
+    #   * /api/v1/...  — the versioned path for new/external clients.
+    # FastAPI supports including one router under multiple prefixes.
+    app.include_router(api_router, prefix="/api")
+    app.include_router(api_router, prefix="/api/v1")
 
+    # Liveness probes hit /api/health, so it MUST stay. It is defined inline on the
+    # app (not the router), so we register it explicitly under both prefixes to
+    # mirror the dual-mount above. /api/health is the canonical probe path.
     @app.get("/api/health", tags=["meta"])
+    @app.get("/api/v1/health", tags=["meta"])
     def health() -> dict[str, str]:
         """Liveness probe. Confirms the app is up; requires no network or LLM key."""
         return {"status": "ok"}

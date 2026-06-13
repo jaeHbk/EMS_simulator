@@ -38,6 +38,7 @@ from datetime import UTC, datetime
 from app.models import Encounter
 
 __all__ = [
+    "count_encounters",
     "get_encounter",
     "init_db",
     "list_encounters_by_trainee",
@@ -266,6 +267,18 @@ def get_encounter(encounter_id: str) -> Encounter:
     if row is None:
         raise KeyError(f"No encounter with id {encounter_id!r}.")
     return Encounter.model_validate_json(row[0])
+
+
+def count_encounters() -> int:
+    """Return the total number of persisted encounters.
+
+    A single ``COUNT(*)`` over the ``encounters`` table — no payloads are
+    deserialized and no per-encounter content is touched, so this is cheap and
+    PII-free (it backs the operational ``/stats`` endpoint).
+    """
+    with _operation() as conn:
+        row = conn.execute("SELECT COUNT(*) FROM encounters").fetchone()
+    return int(row[0])
 
 
 def list_encounters_by_trainee(trainee_id: str) -> list[Encounter]:

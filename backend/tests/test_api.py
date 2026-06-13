@@ -97,6 +97,101 @@ def test_health() -> None:
     assert resp.json() == {"status": "ok"}
 
 
+def test_v1_health_also_works(client: TestClient) -> None:
+    """/api/v1/health mirrors the canonical /api/health liveness probe."""
+    resp = client.get("/api/v1/health")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+
+
+def test_router_dual_mounted_under_api_and_v1(client: TestClient) -> None:
+    """The same router is reachable under BOTH /api and /api/v1 (back-compat).
+
+    Creating an encounter works at both prefixes, and the /api/v1 mount is fully
+    functional (not just the create route) — we walk one a step under /api/v1.
+    """
+    # Back-compat /api prefix (what the frontend calls) still creates an encounter.
+    legacy = client.post("/api/encounters", json={"sources": ["synthetic"], "seed": 11})
+    assert legacy.status_code == 200, legacy.text
+    legacy_enc = legacy.json()
+    assert legacy_enc["stage"] == "CASE_LOAD"
+    assert legacy_enc["encounterId"]
+    _assert_no_expert_leak(legacy_enc)
+
+    # Versioned /api/v1 prefix also creates an encounter (same Encounter shape).
+    versioned = client.post(
+        "/api/v1/encounters", json={"sources": ["synthetic"], "seed": 11}
+    )
+    assert versioned.status_code == 200, versioned.text
+    v_enc = versioned.json()
+    assert v_enc["stage"] == "CASE_LOAD"
+    v_eid = v_enc["encounterId"]
+    assert v_eid
+    _assert_no_expert_leak(v_enc)
+
+    # The versioned mount is genuinely functional: GET it back and advance a stage.
+    got = client.get(f"/api/v1/encounters/{v_eid}")
+    assert got.status_code == 200, got.text
+    assert got.json()["encounterId"] == v_eid
+
+    advanced = client.post(
+        f"/api/v1/encounters/{v_eid}/advance", json={"to": "HISTORY"}
+    )
+    assert advanced.status_code == 200, advanced.text
+    assert advanced.json()["stage"] == "HISTORY"
+    _assert_no_expert_leak(advanced.json())
+
+    # The encounter created via /api/v1 is also visible via the /api alias (one store).
+    via_alias = client.get(f"/api/encounters/{v_eid}")
+    assert via_alias.status_code == 200
+    assert via_alias.json()["encounterId"] == v_eid
+
+
+def test_stats_endpoint_reports_counts_and_metrics(client: TestClient) -> None:
+    """GET /stats (both prefixes) returns encounter count, LLM snapshot, version.
+
+    The in-memory store is process-global (one shared sqlite3 connection for the
+    whole run), so the baseline count is whatever earlier tests left behind — we
+    assert the count grows by exactly the N encounters this test creates. The
+    fixture's reset_metrics() zeros the LLM accumulator; creating encounters makes
+    no LLM call, so calls stays 0. The payload is operational only: counts +
+    aggregate metrics, no per-encounter content.
+    """
+    # Baseline snapshot (count may be non-zero: the :memory: store is shared).
+    baseline = client.get("/api/v1/stats")
+    assert baseline.status_code == 200, baseline.text
+    base_body = baseline.json()
+    base_count = base_body["encounters"]
+    assert isinstance(base_count, int)
+    assert base_body["version"] == "0.1.0"
+    # The LLM block is the observability snapshot dict, with its known keys.
+    llm = base_body["llm"]
+    assert llm == snapshot()
+    for key in ("calls", "failures", "total_latency_s", "mean_latency_s"):
+        assert key in llm
+    # The fixture reset metrics and creating encounters makes no LLM call.
+    assert llm["calls"] == 0
+
+    # Create exactly 3 encounters; the count must grow by exactly 3.
+    for seed in (1, 2, 3):
+        created = client.post("/api/encounters", json={"sources": ["synthetic"], "seed": seed})
+        assert created.status_code == 200, created.text
+
+    after = client.get("/api/v1/stats")
+    assert after.status_code == 200, after.text
+    assert after.json()["encounters"] == base_count + 3
+
+    # The /api alias exposes the identical operational summary.
+    alias = client.get("/api/stats")
+    assert alias.status_code == 200, alias.text
+    assert alias.json()["encounters"] == base_count + 3
+    assert alias.json()["version"] == "0.1.0"
+
+    # Operational-only: no per-encounter content (ids / history / expert labels).
+    body = after.json()
+    assert set(body) == {"encounters", "llm", "version"}
+
+
 def test_response_carries_request_id_header(client: TestClient) -> None:
     """Every response echoes an X-Request-ID correlation header (auto-minted)."""
     resp = client.get("/api/health")

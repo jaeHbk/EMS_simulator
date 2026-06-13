@@ -1,4 +1,9 @@
-"""REST routes for the ED Triage Trainer, all mounted under ``/api``.
+"""REST routes for the ED Triage Trainer.
+
+The router carries no path prefix of its own; ``app.main`` mounts it under BOTH
+``/api`` (the unversioned back-compat alias the current frontend calls) and
+``/api/v1`` (the versioned path). Every route below uses a relative path
+(``/encounters``, ``/analytics/{id}``, ...) so it is reachable under either mount.
 
 Each route is a thin adapter:
 
@@ -29,16 +34,24 @@ import random
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from app import llm, scoring, sim, store
+from app import llm, observability, scoring, sim, store
 from app.config import Settings, get_settings
 from app.data import registry as data
 from app.data.registry import DeidentificationError, UnknownSourceError
 from app.models import Encounter, HistoryTurn, Stage, TraineeAnalytics, TriageCase
 from app.models.encounter import Role
+from app.models.ops import OperationalStats
 from app.scoring.analytics import compute_analytics
 from app.sim.machine import StageError
 
-router = APIRouter(prefix="/api", tags=["encounters"])
+# Single source of truth for the app version, shared with ``app.main`` (the
+# FastAPI ``version=`` and the ``/stats`` payload must agree). Mirror the value in
+# ``pyproject.toml`` when bumping the release.
+APP_VERSION = "0.1.0"
+
+# No ``prefix`` here: ``app.main`` includes this router under both ``/api`` and
+# ``/api/v1`` so every route is reachable at both. Keep all route paths relative.
+router = APIRouter(tags=["encounters"])
 
 
 # ---------------------------------------------------------------------------
@@ -49,7 +62,7 @@ class _StrictBody(BaseModel):
 
 
 class CreateEncounterBody(_StrictBody):
-    """Body for ``POST /api/encounters``.
+    """Body for ``POST /encounters``.
 
     All fields optional: with an empty body the server picks a random case from
     its configured default sources.
@@ -330,3 +343,22 @@ def get_trainee_analytics(trainee_id: str) -> TraineeAnalytics:
             difficulty = None
         difficulty_by_case[case_id] = difficulty.value if difficulty is not None else None
     return compute_analytics(trainee_id, encounters, difficulty_by_case)
+
+
+@router.get("/stats", response_model=OperationalStats, tags=["meta"])
+def get_stats() -> OperationalStats:
+    """Operational/monitoring summary for deploy + observability visibility.
+
+    Aggregates only: the stored-encounter count and the in-process LLM metrics
+    snapshot (call/failure counts, latency, char throughput), plus the app
+    version. This is for ops dashboards / readiness checks — it is NOT part of
+    the trainee (React) contract and is intentionally absent from
+    ``shared/schemas`` and ``contract.ts``. It exposes NO PII and NO per-encounter
+    content (no ids, history, or expert labels) — counts and aggregate metrics
+    only.
+    """
+    return OperationalStats(
+        encounters=store.count_encounters(),
+        llm=observability.snapshot(),
+        version=APP_VERSION,
+    )
