@@ -3,11 +3,20 @@
 Covers: init_db idempotency, save/get round-trip preserving every field, upsert
 semantics, unknown-id KeyError, and the SQLAlchemy-style URL -> sqlite3 path
 translation (including in-memory and file-backed targets).
+
+Also covers the concurrency-hardening guarantees: a file-backed store survives
+many threads writing at once (WAL + per-operation connections + busy_timeout),
+``PRAGMA user_version`` tracks the applied migration version, and the
+``created_at``/``updated_at`` bookkeeping columns behave (created_at is stable
+across re-saves; updated_at never goes backwards).
 """
 
 from __future__ import annotations
 
+import sqlite3
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -149,4 +158,111 @@ def test_file_backed_db_round_trip(tmp_path) -> None:  # type: ignore[no-untyped
     assert db_file.exists()
     # Re-init the same file: persisted data must still be readable.
     init_db(f"sqlite:///{db_file}")
+    assert get_encounter(enc.encounterId) == enc
+
+
+def _read_timestamps(db_path: Path, encounter_id: str) -> tuple[str, str]:
+    """Read (created_at, updated_at) for one row via a direct sqlite3 query.
+
+    Test-only helper: opens its own short-lived connection to the file DB so it
+    does not depend on (or perturb) the store's connection handling.
+    """
+    conn = sqlite3.connect(str(db_path))
+    try:
+        row = conn.execute(
+            "SELECT created_at, updated_at FROM encounters WHERE encounter_id = ?",
+            (encounter_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    assert row is not None
+    return row[0], row[1]
+
+
+def test_file_backed_concurrent_saves(tmp_path: Path) -> None:
+    """~20 threads each saving a distinct encounter to a FILE db must all land.
+
+    Exercises the concurrency-safe path: WAL + busy_timeout + a fresh connection
+    per operation. With the old single shared connection this raced and could
+    raise ``sqlite3.ProgrammingError`` / ``OperationalError`` ("database is
+    locked"). We collect every thread's exception and assert none occurred, then
+    confirm all rows are retrievable.
+    """
+    db_file = tmp_path / "c.sqlite3"
+    init_db(f"sqlite:///{db_file}")
+
+    n = 20
+    ids = [f"enc-conc-{i:02d}" for i in range(n)]
+
+    def _save(enc_id: str) -> None:
+        save_encounter(Encounter(encounterId=enc_id, caseId="case-x"))
+
+    errors: list[BaseException] = []
+    with ThreadPoolExecutor(max_workers=n) as pool:
+        futures = [pool.submit(_save, enc_id) for enc_id in ids]
+        for fut in futures:
+            exc = fut.exception()
+            if exc is not None:
+                errors.append(exc)
+
+    assert errors == [], f"threads raised: {errors!r}"
+    # Every distinct encounter must be retrievable.
+    for enc_id in ids:
+        assert get_encounter(enc_id).encounterId == enc_id
+
+
+def test_user_version_is_set_and_reinit_idempotent(tmp_path: Path) -> None:
+    """``PRAGMA user_version`` reflects the applied migration (>= 1) and re-init
+    neither downgrades it nor loses data."""
+    db_file = tmp_path / "v.sqlite3"
+    init_db(f"sqlite:///{db_file}")
+
+    def _user_version() -> int:
+        conn = sqlite3.connect(str(db_file))
+        try:
+            return int(conn.execute("PRAGMA user_version").fetchone()[0])
+        finally:
+            conn.close()
+
+    first = _user_version()
+    assert first >= 1
+
+    enc = Encounter(encounterId="enc-ver", caseId="case-x")
+    save_encounter(enc)
+
+    # Re-init the same file: idempotent, no downgrade, data preserved.
+    init_db(f"sqlite:///{db_file}")
+    assert _user_version() == first
+    assert get_encounter("enc-ver").encounterId == "enc-ver"
+
+
+def test_created_at_stable_updated_at_advances(tmp_path: Path) -> None:
+    """On re-save of the same id, ``created_at`` is preserved and ``updated_at``
+    moves forward (>=)."""
+    db_file = tmp_path / "ts.sqlite3"
+    init_db(f"sqlite:///{db_file}")
+
+    enc = Encounter(encounterId="enc-ts", caseId="case-x", stage=Stage.CASE_LOAD)
+    save_encounter(enc)
+    created_1, updated_1 = _read_timestamps(db_file, "enc-ts")
+
+    # Re-save the SAME encounterId after a state change.
+    updated = enc.model_copy(update={"stage": Stage.HISTORY})
+    save_encounter(updated)
+    created_2, updated_2 = _read_timestamps(db_file, "enc-ts")
+
+    # created_at is the real invariant: stable across saves.
+    assert created_2 == created_1
+    # updated_at never goes backwards; both are ISO-8601 so lexical >= holds.
+    assert updated_2 >= updated_1
+    assert updated_2 >= created_2
+    # The state change actually persisted.
+    assert get_encounter("enc-ts").stage is Stage.HISTORY
+
+
+def test_memory_round_trip_still_works() -> None:
+    """The shared-connection ``:memory:`` path keeps working end to end."""
+    init_db("sqlite:///:memory:")
+    enc = make_full_encounter()
+    save_encounter(enc)
     assert get_encounter(enc.encounterId) == enc
