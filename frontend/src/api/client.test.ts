@@ -5,6 +5,7 @@ import {
   ApiError,
   API_BASE,
   createEncounter,
+  getCohortAnalytics,
   getEncounter,
   postEsi,
   postFeedback,
@@ -89,6 +90,42 @@ describe("api client", () => {
     expect(JSON.parse(String(init?.body))).toEqual({
       sources: ["mimic_demo", "synthetic"],
     });
+  });
+
+  it("createEncounter includes traineeId and cohortId when provided", async () => {
+    const fetchMock = okFetch();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createEncounter(["mimic_demo"], "trainee-1", "cohort-42");
+
+    const { init } = lastCall(fetchMock);
+    expect(JSON.parse(String(init?.body))).toEqual({
+      sources: ["mimic_demo"],
+      traineeId: "trainee-1",
+      cohortId: "cohort-42",
+    });
+  });
+
+  it("createEncounter omits cohortId from the body when not provided", async () => {
+    const fetchMock = okFetch();
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Pass a traineeId but no cohortId: the body must not carry a cohortId key.
+    await createEncounter(undefined, "trainee-1");
+
+    const { init } = lastCall(fetchMock);
+    expect(JSON.parse(String(init?.body))).toEqual({ traineeId: "trainee-1" });
+  });
+
+  it("getCohortAnalytics GETs the cohort analytics, url-encoding the id", async () => {
+    const fetchMock = okFetch();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getCohortAnalytics("cohort/42 x");
+
+    const { url, init } = lastCall(fetchMock);
+    expect(url).toBe(`${API_BASE}/cohort/cohort%2F42%20x/analytics`);
+    expect(init?.method).toBeUndefined();
   });
 
   it("getEncounter GETs the encounter by id", async () => {

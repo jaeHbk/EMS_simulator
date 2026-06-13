@@ -9,7 +9,12 @@
 // Nothing here requires a network or API key to *exist* — these functions are
 // only invoked when the user acts, and they degrade gracefully via ApiError.
 
-import type { Encounter, Stage, TraineeAnalytics } from "./contract";
+import type {
+  CohortAnalytics,
+  Encounter,
+  Stage,
+  TraineeAnalytics,
+} from "./contract";
 
 /** Base path for all backend routes. Vite proxies "/api" to the FastAPI server. */
 export const API_BASE = "/api";
@@ -93,14 +98,20 @@ function postJson(body: unknown): RequestInit {
  *   the backend uses its configured default sources.
  * @param traineeId Optional opaque per-browser learner id; when provided it is
  *   sent so the encounter is attributed to the trainee's progress analytics.
+ * @param cohortId Optional opaque cohort code; when provided it is sent so the
+ *   encounter is grouped into the cohort's instructor aggregate. Appended as the
+ *   3rd positional param so existing `createEncounter()` / `createEncounter(srcs)`
+ *   call sites are unaffected, and only included in the body when truthy.
  */
 export function createEncounter(
   sources?: string[],
   traineeId?: string,
+  cohortId?: string,
 ): Promise<Encounter> {
-  const body: { sources?: string[]; traineeId?: string } = {};
+  const body: { sources?: string[]; traineeId?: string; cohortId?: string } = {};
   if (sources) body.sources = sources;
   if (traineeId) body.traineeId = traineeId;
+  if (cohortId) body.cohortId = cohortId;
   return request<Encounter>("/encounters", postJson(body));
 }
 
@@ -180,6 +191,18 @@ export function getAnalytics(traineeId: string): Promise<TraineeAnalytics> {
   );
 }
 
+/**
+ * GET /api/cohort/{cohortId}/analytics — deterministic cohort-level triage
+ * metrics for an instructor's aggregate view (cohort under-triage rate +
+ * per-trainee breakdown). An unknown/empty cohort yields a zeroed report (not a
+ * 404). The cohortId is an opaque grouping key, not an identity or credential.
+ */
+export function getCohortAnalytics(cohortId: string): Promise<CohortAnalytics> {
+  return request<CohortAnalytics>(
+    `/cohort/${encodeURIComponent(cohortId)}/analytics`,
+  );
+}
+
 /** Convenience grouping so the store can be handed a single client object in tests. */
 export const apiClient = {
   createEncounter,
@@ -191,6 +214,7 @@ export const apiClient = {
   postInterventions,
   postFeedback,
   getAnalytics,
+  getCohortAnalytics,
 };
 
 export type ApiClient = typeof apiClient;

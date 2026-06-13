@@ -6,6 +6,8 @@
 import { vi } from "vitest";
 import type {
   AnalyticsPoint,
+  CohortAnalytics,
+  CohortTraineeRow,
   Encounter,
   ScoreReport,
   Stage,
@@ -115,6 +117,50 @@ export function makeAnalytics(
     meanLevelsOffAbs: 1,
     ...overrides,
     history,
+  };
+}
+
+export function makeCohortTraineeRow(
+  overrides: Partial<CohortTraineeRow> = {},
+): CohortTraineeRow {
+  return {
+    traineeId: "trainee-aaaa",
+    totalEncounters: 3,
+    underTriageRate: 0.5,
+    correctRate: 0.4,
+    ...overrides,
+  };
+}
+
+export function makeCohortAnalytics(
+  overrides: Partial<CohortAnalytics> = {},
+): CohortAnalytics {
+  // Default trainees are pre-sorted by underTriageRate desc (struggling first),
+  // mirroring the backend's ordering so the panel can render in array order.
+  const trainees = overrides.trainees ?? [
+    makeCohortTraineeRow({
+      traineeId: "trainee-struggler",
+      totalEncounters: 4,
+      underTriageRate: 0.75,
+      correctRate: 0.25,
+    }),
+    makeCohortTraineeRow({
+      traineeId: "trainee-steady",
+      totalEncounters: 2,
+      underTriageRate: 0.1,
+      correctRate: 0.8,
+    }),
+  ];
+  return {
+    cohortId: "cohort-fixture",
+    totalTrainees: trainees.length,
+    totalEncounters: 6,
+    underTriageRate: 0.4,
+    overTriageRate: 0.2,
+    correctRate: 0.4,
+    meanLevelsOffAbs: 1,
+    ...overrides,
+    trainees,
   };
 }
 

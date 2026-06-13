@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ApiClient } from "../api/client";
-import type { Encounter, Stage, TraineeAnalytics } from "../api/contract";
+import type {
+  CohortAnalytics,
+  Encounter,
+  Stage,
+  TraineeAnalytics,
+} from "../api/contract";
 
 // Mock the client module so the singleton store (which imports the real client)
 // never touches `fetch`. Each fn is a vi.fn we can program per test.
@@ -19,6 +24,7 @@ vi.mock("../api/client", async (importOriginal) => {
       postInterventions: vi.fn(),
       postFeedback: vi.fn(),
       getAnalytics: vi.fn(),
+      getCohortAnalytics: vi.fn(),
     },
     createEncounter: vi.fn(),
     getEncounter: vi.fn(),
@@ -29,6 +35,7 @@ vi.mock("../api/client", async (importOriginal) => {
     postInterventions: vi.fn(),
     postFeedback: vi.fn(),
     getAnalytics: vi.fn(),
+    getCohortAnalytics: vi.fn(),
   };
 });
 
@@ -75,6 +82,7 @@ function makeMockClient(): { [K in keyof ApiClient]: ReturnType<typeof vi.fn> } 
     postInterventions: vi.fn(),
     postFeedback: vi.fn(),
     getAnalytics: vi.fn(),
+    getCohortAnalytics: vi.fn(),
   };
 }
 
@@ -93,8 +101,26 @@ function makeAnalytics(
   };
 }
 
+function makeCohortAnalytics(
+  overrides: Partial<CohortAnalytics> = {},
+): CohortAnalytics {
+  return {
+    cohortId: "cohort-test",
+    totalTrainees: 2,
+    totalEncounters: 5,
+    underTriageRate: 0.4,
+    overTriageRate: 0.2,
+    correctRate: 0.4,
+    meanLevelsOffAbs: 1,
+    trainees: [],
+    ...overrides,
+  };
+}
+
 /** localStorage key the store persists the active encounter id under. */
 const ACTIVE_ID_KEY = "ed-triage-active-encounter";
+/** localStorage key the cohortId lib persists the joined cohort code under. */
+const COHORT_KEY = "ed-triage-cohort";
 
 describe("encounterStore (injected mock client)", () => {
   beforeEach(() => {
@@ -111,11 +137,13 @@ describe("encounterStore (injected mock client)", () => {
 
     await store.getState().createEncounter(["mimic_demo"]);
 
-    // The store passes the sources plus the per-browser trainee id (so the
-    // encounter is attributed to this learner's progress analytics).
+    // The store passes the sources, the per-browser trainee id (so the encounter
+    // is attributed to this learner's progress analytics), and the cohort id —
+    // which is `undefined` here because no cohort has been joined.
     expect(client.createEncounter).toHaveBeenCalledWith(
       ["mimic_demo"],
       expect.stringMatching(/^trainee-/),
+      undefined,
     );
     expect(store.getState().encounter).toEqual(enc);
     expect(store.getState().loading).toBe(false);
@@ -271,6 +299,66 @@ describe("encounterStore (injected mock client)", () => {
     await store.getState().fetchAnalytics();
     // Last successful value is preserved.
     expect(store.getState().analytics).toEqual(analytics);
+  });
+
+  it("createEncounter includes the cohort id when one is joined", async () => {
+    window.localStorage.setItem(COHORT_KEY, "cohort-42");
+    const client = makeMockClient();
+    client.createEncounter.mockResolvedValue(makeEncounter());
+    const store = createEncounterStore(client as unknown as ApiClient);
+
+    await store.getState().createEncounter(["mimic_demo"]);
+
+    // 3rd positional arg carries the joined cohort code so the encounter is
+    // grouped into the cohort's instructor aggregate.
+    expect(client.createEncounter).toHaveBeenCalledWith(
+      ["mimic_demo"],
+      expect.stringMatching(/^trainee-/),
+      "cohort-42",
+    );
+  });
+
+  it("fetchCohortAnalytics sets cohortAnalytics when a cohort is joined", async () => {
+    window.localStorage.setItem(COHORT_KEY, "cohort-42");
+    const client = makeMockClient();
+    const cohort = makeCohortAnalytics({ cohortId: "cohort-42" });
+    client.getCohortAnalytics.mockResolvedValue(cohort);
+    const store = createEncounterStore(client as unknown as ApiClient);
+
+    expect(store.getState().cohortAnalytics).toBeNull();
+
+    await store.getState().fetchCohortAnalytics();
+
+    expect(client.getCohortAnalytics).toHaveBeenCalledWith("cohort-42");
+    expect(store.getState().cohortAnalytics).toEqual(cohort);
+  });
+
+  it("fetchCohortAnalytics clears cohortAnalytics and skips the call with no cohort", async () => {
+    const client = makeMockClient();
+    const store = createEncounterStore(client as unknown as ApiClient);
+
+    await store.getState().fetchCohortAnalytics();
+
+    expect(client.getCohortAnalytics).not.toHaveBeenCalled();
+    expect(store.getState().cohortAnalytics).toBeNull();
+  });
+
+  it("failing getCohortAnalytics is swallowed and never clobbers the encounter", async () => {
+    window.localStorage.setItem(COHORT_KEY, "cohort-42");
+    const client = makeMockClient();
+    const enc = makeEncounter();
+    client.createEncounter.mockResolvedValue(enc);
+    client.getCohortAnalytics.mockRejectedValue(new ApiError("cohort down", 500));
+    const store = createEncounterStore(client as unknown as ApiClient);
+    await store.getState().createEncounter();
+
+    await expect(
+      store.getState().fetchCohortAnalytics(),
+    ).resolves.toBeUndefined();
+
+    expect(store.getState().cohortAnalytics).toBeNull();
+    expect(store.getState().error).toBeNull();
+    expect(store.getState().encounter).toEqual(enc);
   });
 
   it("sendHistory sets pendingQuestion before the await and clears it on success", async () => {

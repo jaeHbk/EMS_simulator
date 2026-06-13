@@ -9,7 +9,13 @@
 import { create } from "zustand";
 
 import { ApiError, apiClient, type ApiClient } from "../api/client";
-import type { Encounter, Stage, TraineeAnalytics } from "../api/contract";
+import type {
+  CohortAnalytics,
+  Encounter,
+  Stage,
+  TraineeAnalytics,
+} from "../api/contract";
+import { getCohortId } from "../lib/cohortId";
 import { getTraineeId } from "../lib/traineeId";
 
 /**
@@ -60,6 +66,12 @@ export interface EncounterState {
   /** This browser's trainee learning-curve, or null until first fetched. */
   analytics: TraineeAnalytics | null;
   /**
+   * The active cohort's aggregate analytics, or null when no cohort is joined or
+   * none has been fetched yet. Cohort mode is opt-in; this stays null until the
+   * trainee joins a cohort and the dashboard fetches it.
+   */
+  cohortAnalytics: CohortAnalytics | null;
+  /**
    * The trainee's in-flight HISTORY question, or null. Set the moment
    * `sendHistory` is called (before the POST resolves) so the UI can echo the
    * question instantly + show a "patient is typing" cue, then cleared when the
@@ -91,6 +103,13 @@ export interface EncounterActions {
    * prior analytics value is left intact so the panel keeps showing last data.
    */
   fetchAnalytics: () => Promise<void>;
+  /**
+   * Fetch the active cohort's aggregate analytics and set `cohortAnalytics`.
+   * When no cohort is joined, `cohortAnalytics` is set to null. Like
+   * `fetchAnalytics`, a fetch failure is swallowed (never throws / never
+   * clobbers the encounter) — the prior cohort value is left intact.
+   */
+  fetchCohortAnalytics: () => Promise<void>;
   /** Manually clear the current error (e.g. when dismissing a banner). */
   clearError: () => void;
   /** Reset the store to its empty initial state. */
@@ -104,6 +123,7 @@ const initialState: EncounterState = {
   loading: false,
   error: null,
   analytics: null,
+  cohortAnalytics: null,
   pendingQuestion: null,
 };
 
@@ -151,7 +171,16 @@ export function createEncounterStore(client: ApiClient = apiClient) {
       ...initialState,
 
       createEncounter: (sources) =>
-        run(() => client.createEncounter(sources, getTraineeId())),
+        run(() =>
+          // Tag the encounter with the active cohort (if any) so it counts
+          // toward the instructor aggregate. getCohortId() is null when not
+          // joined; coerce to undefined so it's simply omitted from the body.
+          client.createEncounter(
+            sources,
+            getTraineeId(),
+            getCohortId() ?? undefined,
+          ),
+        ),
 
       resume: async () => {
         const storedId = loadActiveId();
@@ -214,6 +243,22 @@ export function createEncounterStore(client: ApiClient = apiClient) {
         }
       },
 
+      fetchCohortAnalytics: async () => {
+        const cohortId = getCohortId();
+        // Not joined: there is no cohort to show. Clear any stale aggregate.
+        if (!cohortId) {
+          set({ cohortAnalytics: null });
+          return;
+        }
+        try {
+          const cohortAnalytics = await client.getCohortAnalytics(cohortId);
+          set({ cohortAnalytics });
+        } catch {
+          // Secondary read: never surface as an action error or touch the
+          // encounter. Leave the prior `cohortAnalytics` value intact.
+        }
+      },
+
       clearError: () => set({ error: null }),
 
       reset: () => {
@@ -247,6 +292,10 @@ export const useError = (): string | null => useEncounterStore((s) => s.error);
 export const useAnalytics = (): TraineeAnalytics | null =>
   useEncounterStore((s) => s.analytics);
 
+/** The active cohort's aggregate analytics, or null when not joined / unfetched. */
+export const useCohortAnalytics = (): CohortAnalytics | null =>
+  useEncounterStore((s) => s.cohortAnalytics);
+
 /** The trainee's in-flight HISTORY question, or null when none is pending. */
 export const usePendingQuestion = (): string | null =>
   useEncounterStore((s) => s.pendingQuestion);
@@ -267,6 +316,7 @@ function selectActions(s: EncounterStore): EncounterActions {
     orderInterventions: s.orderInterventions,
     requestFeedback: s.requestFeedback,
     fetchAnalytics: s.fetchAnalytics,
+    fetchCohortAnalytics: s.fetchCohortAnalytics,
     clearError: s.clearError,
     reset: s.reset,
   };

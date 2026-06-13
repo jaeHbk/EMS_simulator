@@ -4,21 +4,25 @@
 // the store-backed "start" action.
 
 import { useEffect, useRef, useState } from "react";
-import { Activity, ClipboardList, ShieldAlert, X } from "lucide-react";
+import { Activity, ClipboardList, ShieldAlert, Users, X } from "lucide-react";
 
 import { WorkflowRouter } from "./workflow/WorkflowRouter";
 import { PatientRail } from "./components/PatientRail";
 import { ProgressPanel } from "./components/ProgressPanel";
+import { CohortPanel } from "./components/CohortPanel";
 import {
   useAnalytics,
+  useCohortAnalytics,
   useEncounter,
   useEncounterActions,
   useError,
   useLoading,
 } from "./store/encounterStore";
+import { clearCohortId, getCohortId, setCohortId } from "./lib/cohortId";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 
 /**
  * Required in-product disclaimer (AGENTS.md rule 7 / CLAUDE.md hard rules).
@@ -40,10 +44,35 @@ export default function App(): JSX.Element {
   const loading = useLoading();
   const error = useError();
   const analytics = useAnalytics();
-  const { createEncounter, resume, fetchAnalytics, clearError } =
+  const cohortAnalytics = useCohortAnalytics();
+  const { createEncounter, resume, fetchAnalytics, fetchCohortAnalytics, clearError } =
     useEncounterActions();
 
   const startLabel = encounter ? "Start new encounter" : "Start encounter";
+
+  // Cohort mode is opt-in: the joined cohort code lives in localStorage (via the
+  // cohortId lib). We mirror it into component state so the UI re-renders on
+  // join/leave; `draft` holds the in-progress input before joining. `joinedCode`
+  // is the source of truth for "are we in cohort mode" in the render below.
+  const [joinedCode, setJoinedCode] = useState<string | null>(() => getCohortId());
+  const [draft, setDraft] = useState("");
+
+  const joinCohort = (): void => {
+    const code = draft.trim();
+    if (!code) return;
+    setCohortId(code);
+    setJoinedCode(code);
+    setDraft("");
+    void fetchCohortAnalytics();
+  };
+
+  const leaveCohort = (): void => {
+    clearCohortId();
+    setJoinedCode(null);
+    // Drop the now-stale cohort aggregate (fetchCohortAnalytics nulls it out
+    // since no cohort is joined).
+    void fetchCohortAnalytics();
+  };
 
   // Rehydrate the active encounter on load: a refresh / tab reload / projector
   // hiccup mid-encounter would otherwise discard everything. Runs once on mount,
@@ -60,8 +89,12 @@ export default function App(): JSX.Element {
   useEffect(() => {
     if (stage === null || stage === "FEEDBACK") {
       void fetchAnalytics();
+      // Refresh the cohort aggregate at the same transitions (mount + after a
+      // case scores). A no-cohort state makes fetchCohortAnalytics a cheap
+      // null-out, so this is safe to call unconditionally.
+      void fetchCohortAnalytics();
     }
-  }, [stage, fetchAnalytics]);
+  }, [stage, fetchAnalytics, fetchCohortAnalytics]);
 
   // --- App-level polite status announcements for assistive tech ---
   // Async outcomes (a patient reply, vitals coming back, a score) and the start
@@ -204,6 +237,65 @@ export default function App(): JSX.Element {
                   </CardContent>
                 </Card>
                 <ProgressPanel analytics={analytics} />
+
+                {/* Cohort mode (opt-in). Join with a code to tag new encounters
+                    into an instructor's aggregate; the dashboard appears once a
+                    cohort is active. */}
+                <Card className="cohort-join">
+                  <CardContent className="space-y-3 p-6">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-primary" aria-hidden="true" />
+                      <h2 className="font-semibold leading-none tracking-tight">
+                        Cohort mode
+                      </h2>
+                    </div>
+                    {joinedCode === null ? (
+                      <form
+                        className="flex flex-col gap-2 sm:flex-row sm:items-end"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          joinCohort();
+                        }}
+                      >
+                        <div className="flex-1 space-y-1.5">
+                          <Label htmlFor="cohort-code-input">Cohort code</Label>
+                          <input
+                            id="cohort-code-input"
+                            type="text"
+                            value={draft}
+                            onChange={(e) => setDraft(e.target.value)}
+                            placeholder="e.g. fall-2026-shift-a"
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                          />
+                        </div>
+                        <Button type="submit" disabled={draft.trim() === ""}>
+                          Join
+                        </Button>
+                      </form>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm text-muted-foreground">
+                          Joined cohort{" "}
+                          <span className="font-mono font-medium text-foreground">
+                            {joinedCode}
+                          </span>
+                          . New encounters count toward its aggregate.
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => leaveCohort()}
+                        >
+                          Leave
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {joinedCode !== null && (
+                  <CohortPanel analytics={cohortAnalytics} />
+                )}
               </div>
             )}
           </section>

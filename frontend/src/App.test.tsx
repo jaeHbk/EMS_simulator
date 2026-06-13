@@ -16,6 +16,7 @@ interface MockState {
   loading: boolean;
   error: string | null;
   analytics: null;
+  cohortAnalytics: null;
 }
 
 let state: MockState;
@@ -26,6 +27,7 @@ function makeState(overrides: Partial<MockState> = {}): MockState {
     loading: false,
     error: null,
     analytics: null,
+    cohortAnalytics: null,
     ...overrides,
   };
 }
@@ -46,6 +48,7 @@ const actions = {
   orderInterventions: vi.fn(noop),
   requestFeedback: vi.fn(noop),
   fetchAnalytics: vi.fn(noop),
+  fetchCohortAnalytics: vi.fn(noop),
   clearError: vi.fn(),
   reset: vi.fn(),
 };
@@ -56,6 +59,7 @@ vi.mock("./store/encounterStore", () => ({
   useLoading: () => state.loading,
   useError: () => state.error,
   useAnalytics: () => state.analytics,
+  useCohortAnalytics: () => state.cohortAnalytics,
   usePendingQuestion: () => null,
   useEncounterActions: () => actions,
   // Zustand selector convention: bare → whole state, with a selector → a slice.
