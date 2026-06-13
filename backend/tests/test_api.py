@@ -436,17 +436,21 @@ _FORCED_CASE = "synthetic:abdominal-pain-007"  # expert ESI == 3
 
 
 def _walk_to_feedback_with_esi(
-    client: TestClient, *, trainee_id: str, esi: int
+    client: TestClient, *, trainee_id: str, esi: int, cohort_id: str | None = None
 ) -> dict:
-    """Create an encounter for the fixed case under ``trainee_id`` and walk it to
-    FEEDBACK, assigning ``esi``. Returns the final FEEDBACK encounter body."""
-    create = client.post(
-        "/api/encounters", json={"caseId": _FORCED_CASE, "traineeId": trainee_id}
-    )
+    """Create an encounter for the fixed case under ``trainee_id`` (and optional
+    ``cohort_id``) and walk it to FEEDBACK, assigning ``esi``. Returns the final
+    FEEDBACK encounter body."""
+    body: dict = {"caseId": _FORCED_CASE, "traineeId": trainee_id}
+    if cohort_id is not None:
+        body["cohortId"] = cohort_id
+    create = client.post("/api/encounters", json=body)
     assert create.status_code == 200, create.text
     enc = create.json()
     # The opaque analytics key round-trips on the wire format.
     assert enc["traineeId"] == trainee_id
+    if cohort_id is not None:
+        assert enc["cohortId"] == cohort_id
     eid = enc["encounterId"]
 
     client.post(f"/api/encounters/{eid}/advance", json={"to": "HISTORY"})
@@ -598,3 +602,74 @@ def test_analytics_segments_under_triage_by_difficulty(
     # Headline (un-segmented) rate is unchanged by the segmentation.
     assert analytics["totalEncounters"] == 1
     assert analytics["underTriageRate"] == pytest.approx(1.0)
+
+
+# ---------------------------------------------------------------------------
+# Cohort analytics: cohortId on the encounter + GET /api/cohort/{id}/analytics.
+# Same forced case as the per-trainee tests (expert ESI == 3): assign 3 -> CORRECT,
+# 4 -> UNDER_TRIAGE, 2 -> OVER_TRIAGE. We spread encounters across two trainees
+# under one cohort so the per-trainee breakdown + cohort rollup are both exercised.
+# ---------------------------------------------------------------------------
+def test_cohort_analytics_aggregates_across_trainees(client: TestClient) -> None:
+    """Three encounters under one cohortId across two trainees aggregate into the
+    cohort-wide rates plus a per-trainee breakdown sorted struggling-first."""
+    cohort = "cohort-co1"
+    # Trainee A: one UNDER_TRIAGE (the struggling learner).
+    a_under = _walk_to_feedback_with_esi(
+        client, trainee_id="trainee-a", esi=4, cohort_id=cohort
+    )
+    # Trainee B: one CORRECT + one OVER_TRIAGE.
+    b_correct = _walk_to_feedback_with_esi(
+        client, trainee_id="trainee-b", esi=3, cohort_id=cohort
+    )
+    b_over = _walk_to_feedback_with_esi(
+        client, trainee_id="trainee-b", esi=2, cohort_id=cohort
+    )
+
+    # Sanity: directions were forced as intended (FEEDBACK reveals expert labels).
+    assert a_under["scoreReport"]["esi"]["triageDirection"] == "UNDER_TRIAGE"
+    assert b_correct["scoreReport"]["esi"]["triageDirection"] == "CORRECT"
+    assert b_over["scoreReport"]["esi"]["triageDirection"] == "OVER_TRIAGE"
+
+    resp = client.get(f"/api/v1/cohort/{cohort}/analytics")
+    assert resp.status_code == 200, resp.text
+    analytics = resp.json()
+
+    assert analytics["cohortId"] == cohort
+    assert analytics["totalTrainees"] == 2
+    assert analytics["totalEncounters"] == 3
+    # One of each direction cohort-wide => each rate is 1/3.
+    assert analytics["underTriageRate"] == pytest.approx(1 / 3)
+    assert analytics["overTriageRate"] == pytest.approx(1 / 3)
+    assert analytics["correctRate"] == pytest.approx(1 / 3)
+    assert analytics["meanLevelsOffAbs"] == pytest.approx(2 / 3)
+
+    # Per-trainee rows: A (under-triage rate 1.0) sorts before B (0.0).
+    rows = analytics["trainees"]
+    assert [r["traineeId"] for r in rows] == ["trainee-a", "trainee-b"]
+    a_row, b_row = rows
+    assert a_row["totalEncounters"] == 1
+    assert a_row["underTriageRate"] == pytest.approx(1.0)
+    assert a_row["correctRate"] == pytest.approx(0.0)
+    assert b_row["totalEncounters"] == 2
+    assert b_row["underTriageRate"] == pytest.approx(0.0)
+    assert b_row["correctRate"] == pytest.approx(0.5)
+
+
+def test_unknown_cohort_returns_zeroed_analytics(client: TestClient) -> None:
+    """An unknown/empty cohort yields a zeroed report, never a 404."""
+    resp = client.get("/api/v1/cohort/nobody-here/analytics")
+    assert resp.status_code == 200, resp.text
+    analytics = resp.json()
+    assert analytics == {
+        "cohortId": "nobody-here",
+        "totalTrainees": 0,
+        "totalEncounters": 0,
+        "underTriageRate": 0.0,
+        "overTriageRate": 0.0,
+        "correctRate": 0.0,
+        "meanLevelsOffAbs": 0.0,
+        # No scored encounters -> the difficulty segmentation stays null.
+        "byDifficulty": None,
+        "trainees": [],
+    }

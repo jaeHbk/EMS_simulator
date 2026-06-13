@@ -6,6 +6,7 @@ tests/test_contract.py green.
 """
 
 from app.models.analytics import AnalyticsPoint, TraineeAnalytics
+from app.models.cohort import CohortAnalytics, CohortTraineeRow
 from app.models.encounter import Encounter, HistoryTurn, Stage
 from app.models.ops import OperationalStats
 from app.models.score import ScoreDimension, ScoreReport, TriageDirection
@@ -24,6 +25,8 @@ from app.models.triage_case import (
 
 __all__ = [
     "AnalyticsPoint",
+    "CohortAnalytics",
+    "CohortTraineeRow",
     "CriticalIntervention",
     "Demographics",
     "Difficulty",

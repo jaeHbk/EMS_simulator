@@ -18,7 +18,12 @@ import Ajv, { type AnySchema } from "ajv";
 import addFormats from "ajv-formats";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import type { Encounter, ScoreReport, TraineeAnalytics } from "./contract";
+import type {
+  CohortAnalytics,
+  Encounter,
+  ScoreReport,
+  TraineeAnalytics,
+} from "./contract";
 
 // Vitest runs with process.cwd() at the frontend/ dir, and shared/schemas is a
 // sibling of frontend/. (Resolved from cwd rather than import.meta.url, since the
@@ -39,8 +44,9 @@ beforeAll(() => {
   ajv.addSchema(loadSchema("triage-case.schema.json"));
   ajv.addSchema(loadSchema("score-report.schema.json"));
   ajv.addSchema(loadSchema("encounter.schema.json"));
-  // The analytics schema is standalone (no $refs), so order is irrelevant.
+  // The analytics schemas are standalone (no cross-file $refs), so order is irrelevant.
   ajv.addSchema(loadSchema("analytics.schema.json"));
+  ajv.addSchema(loadSchema("cohort-analytics.schema.json"));
 });
 
 /** Validate `instance` against the schema with the given $id; assert no errors. */
@@ -59,6 +65,8 @@ function validate(schemaId: string, instance: unknown): void {
 const ENCOUNTER_ID = "https://ed-triage-trainer/schemas/encounter.schema.json";
 const SCORE_REPORT_ID = "https://ed-triage-trainer/schemas/score-report.schema.json";
 const ANALYTICS_ID = "https://ed-triage-trainer/schemas/analytics.schema.json";
+const COHORT_ANALYTICS_ID =
+  "https://ed-triage-trainer/schemas/cohort-analytics.schema.json";
 
 // --- Representative + edge-case fixtures, typed against contract.ts ---
 
@@ -223,6 +231,41 @@ const ANALYTICS_WITH_DIFFICULTY: TraineeAnalytics = {
   },
 };
 
+// A populated cohort report: two trainees (one struggling, sorted first) plus the
+// optional byDifficulty segmentation. And a zeroed report for an unknown cohort —
+// the edge case the endpoint returns instead of 404.
+const FULL_COHORT_ANALYTICS: CohortAnalytics = {
+  cohortId: "cohort-x",
+  totalTrainees: 2,
+  totalEncounters: 3,
+  underTriageRate: 1 / 3,
+  overTriageRate: 1 / 3,
+  correctRate: 1 / 3,
+  meanLevelsOffAbs: 2 / 3,
+  byDifficulty: {
+    trap: { totalEncounters: 1, underTriageRate: 1 },
+    standard: { totalEncounters: 2, underTriageRate: 0 },
+  },
+  // Sorted underTriageRate desc, tie-broken by traineeId asc (struggling first).
+  trainees: [
+    { traineeId: "trainee-a", totalEncounters: 1, underTriageRate: 1, correctRate: 0 },
+    { traineeId: "trainee-b", totalEncounters: 2, underTriageRate: 0, correctRate: 0.5 },
+  ],
+};
+
+const ZEROED_COHORT_ANALYTICS: CohortAnalytics = {
+  cohortId: "nobody-here",
+  totalTrainees: 0,
+  totalEncounters: 0,
+  underTriageRate: 0,
+  overTriageRate: 0,
+  correctRate: 0,
+  meanLevelsOffAbs: 0,
+  // No scored encounters -> the difficulty segmentation is null.
+  byDifficulty: null,
+  trainees: [],
+};
+
 describe("contract.ts conforms to shared JSON schemas", () => {
   it("a fully-populated Encounter (FEEDBACK, nested ScoreReport) conforms", () => {
     validate(ENCOUNTER_ID, FULL_ENCOUNTER);
@@ -287,5 +330,26 @@ describe("contract.ts conforms to shared JSON schemas", () => {
   it("rejects TraineeAnalytics with an out-of-range rate", () => {
     const bad = { ...ZEROED_ANALYTICS, underTriageRate: 1.5 };
     expect(() => validate(ANALYTICS_ID, bad)).toThrow(/schema violations/);
+  });
+
+  it("a populated CohortAnalytics (trainees + byDifficulty) conforms", () => {
+    validate(COHORT_ANALYTICS_ID, FULL_COHORT_ANALYTICS);
+  });
+
+  it("a zeroed CohortAnalytics (unknown cohort, empty trainees) conforms", () => {
+    validate(COHORT_ANALYTICS_ID, ZEROED_COHORT_ANALYTICS);
+  });
+
+  it("rejects a CohortAnalytics trainee row missing a required field", () => {
+    const bad = {
+      ...FULL_COHORT_ANALYTICS,
+      trainees: [{ traineeId: "trainee-a", totalEncounters: 1, underTriageRate: 1 }],
+    };
+    expect(() => validate(COHORT_ANALYTICS_ID, bad)).toThrow(/schema violations/);
+  });
+
+  it("rejects a CohortAnalytics with an out-of-range rate", () => {
+    const bad = { ...ZEROED_COHORT_ANALYTICS, underTriageRate: 1.5 };
+    expect(() => validate(COHORT_ANALYTICS_ID, bad)).toThrow(/schema violations/);
   });
 });

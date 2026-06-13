@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ed-triage-trainer/schemas/cohort-analytics.schema.json",
+  "title": "CohortAnalytics",
+  "description": "Cohort-level triage analytics for an instructor's aggregate view, computed deterministically from stored ScoreReports. The cohort id and trainee ids are OPAQUE grouping/analytics keys, NOT identities or credentials. This is the wire format for GET /api/cohort/{cohortId}/analytics. Aggregates and opaque codes only: no PII and no per-encounter content beyond counts/rates. An unknown/empty cohort yields a zeroed report (not a 404).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "cohortId",
+    "totalTrainees",
+    "totalEncounters",
+    "underTriageRate",
+    "overTriageRate",
+    "correctRate",
+    "meanLevelsOffAbs",
+    "trainees"
+  ],
+  "properties": {
+    "cohortId": { "type": "string", "description": "Opaque cohort grouping code. Not an identity or credential." },
+    "totalTrainees": { "type": "integer", "minimum": 0, "description": "Count of distinct trainee ids among the cohort's scored encounters. Encounters with no traineeId are grouped under the sentinel '(anonymous)' and count as one trainee." },
+    "totalEncounters": { "type": "integer", "minimum": 0, "description": "Count of completed (FEEDBACK-stage, scored) encounters across the cohort." },
+    "underTriageRate": { "type": "number", "minimum": 0, "maximum": 1, "description": "Cohort-wide fraction of scored encounters with triageDirection == UNDER_TRIAGE. 0 when totalEncounters == 0. The headline safety metric." },
+    "overTriageRate": { "type": "number", "minimum": 0, "maximum": 1, "description": "Cohort-wide fraction with triageDirection == OVER_TRIAGE. 0 when totalEncounters == 0." },
+    "correctRate": { "type": "number", "minimum": 0, "maximum": 1, "description": "Cohort-wide fraction with triageDirection == CORRECT. 0 when totalEncounters == 0." },
+    "meanLevelsOffAbs": { "type": "number", "minimum": 0, "description": "Cohort-wide mean of abs(esi.levelsOff) across scored encounters. 0 when totalEncounters == 0." },
+    "byDifficulty": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["trap", "standard"],
+      "description": "Cohort-wide under-triage segmented by case difficulty: 'trap' = cases tagged TRAP (benign-looking, dangerous); 'standard' = STANDARD or untagged cases. null/absent when no scored encounters or the producer didn't resolve difficulty (legacy/zeroed path). The headline safety lens: trap.underTriageRate isolates calibration failures on dangerous-looking-benign presentations.",
+      "properties": {
+        "trap": { "$ref": "#/definitions/difficultyStats" },
+        "standard": { "$ref": "#/definitions/difficultyStats" }
+      }
+    },
+    "trainees": {
+      "type": "array",
+      "description": "Per-trainee breakdown so an instructor can spot who is struggling. One row per distinct trainee id among the cohort's scored encounters (anonymous encounters group under '(anonymous)'). Sorted by underTriageRate descending, tie-broken by traineeId ascending (struggling trainees first).",
+      "items": { "$ref": "#/definitions/cohortTraineeRow" }
+    }
+  },
+  "definitions": {
+    "difficultyStats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["totalEncounters", "underTriageRate"],
+      "description": "Under-triage summary for one difficulty bucket.",
+      "properties": {
+        "totalEncounters": { "type": "integer", "minimum": 0, "description": "Count of scored encounters in this difficulty bucket." },
+        "underTriageRate": { "type": "number", "minimum": 0, "maximum": 1, "description": "Fraction of this bucket's scored encounters that were UNDER_TRIAGE. 0 when the bucket is empty." }
+      }
+    },
+    "cohortTraineeRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["traineeId", "totalEncounters", "underTriageRate", "correctRate"],
+      "description": "One trainee's scored-encounter summary within the cohort.",
+      "properties": {
+        "traineeId": { "type": "string", "description": "Opaque per-browser learner id, or the sentinel '(anonymous)' for encounters with no traineeId. Not an identity or credential." },
+        "totalEncounters": { "type": "integer", "minimum": 0, "description": "Count of this trainee's scored encounters in the cohort." },
+        "underTriageRate": { "type": "number", "minimum": 0, "maximum": 1, "description": "Fraction of this trainee's scored encounters that were UNDER_TRIAGE." },
+        "correctRate": { "type": "number", "minimum": 0, "maximum": 1, "description": "Fraction of this trainee's scored encounters that were CORRECT." }
+      }
+    }
+  }
+}

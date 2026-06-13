@@ -38,10 +38,18 @@ from app import llm, observability, scoring, sim, store
 from app.config import Settings, get_settings
 from app.data import registry as data
 from app.data.registry import DeidentificationError, UnknownSourceError
-from app.models import Encounter, HistoryTurn, Stage, TraineeAnalytics, TriageCase
+from app.models import (
+    CohortAnalytics,
+    Encounter,
+    HistoryTurn,
+    Stage,
+    TraineeAnalytics,
+    TriageCase,
+)
 from app.models.encounter import Role
 from app.models.ops import OperationalStats
 from app.scoring.analytics import compute_analytics
+from app.scoring.cohort import compute_cohort_analytics
 from app.sim.machine import StageError
 
 # Single source of truth for the app version, shared with ``app.main`` (the
@@ -354,6 +362,32 @@ def get_trainee_analytics(trainee_id: str) -> TraineeAnalytics:
             difficulty = None
         difficulty_by_case[case_id] = difficulty.value if difficulty is not None else None
     return compute_analytics(trainee_id, encounters, difficulty_by_case)
+
+
+@router.get("/cohort/{cohort_id}/analytics", response_model=CohortAnalytics)
+def get_cohort_analytics(cohort_id: str) -> CohortAnalytics:
+    """Cohort-level triage analytics for an instructor, computed deterministically
+    from stored ScoreReports.
+
+    ``cohort_id`` (and the per-trainee ids in the breakdown) are OPAQUE
+    grouping/analytics keys, not identities or credentials; the report carries
+    aggregates and opaque codes only — no PII, no per-encounter content beyond
+    counts/rates. Every contributing encounter is at the FEEDBACK stage, where
+    expert labels are already revealed via scoring, so expert ESI here is fine. An
+    unknown/empty cohort returns a zeroed report (not a 404).
+    """
+    encounters = store.list_encounters_by_cohort(cohort_id)
+    # Resolve each distinct case's difficulty so cohort analytics can segment
+    # under-triage into trap vs standard buckets. An unknown/evicted case (KeyError)
+    # is treated as None (-> standard); we never 500 the analytics read.
+    difficulty_by_case: dict[str, str | None] = {}
+    for case_id in {enc.caseId for enc in encounters}:
+        try:
+            difficulty = data.get_case(case_id).difficulty
+        except KeyError:
+            difficulty = None
+        difficulty_by_case[case_id] = difficulty.value if difficulty is not None else None
+    return compute_cohort_analytics(cohort_id, encounters, difficulty_by_case)
 
 
 @router.get("/stats", response_model=OperationalStats, tags=["meta"])

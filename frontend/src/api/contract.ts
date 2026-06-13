@@ -155,3 +155,33 @@ export interface TraineeAnalytics {
   byDifficulty?: ByDifficulty | null;
   history: AnalyticsPoint[];
 }
+
+// One trainee's scored-encounter summary within a cohort. traineeId is an opaque
+// learner id, or the sentinel "(anonymous)" for encounters with no traineeId.
+export interface CohortTraineeRow {
+  traineeId: string;
+  totalEncounters: number;
+  underTriageRate: number; // 0..1
+  correctRate: number; // 0..1
+}
+
+// The wire format: GET /api/cohort/{cohortId}/analytics. Deterministic cohort-level
+// triage metrics for an instructor's aggregate view. cohortId and the per-trainee
+// ids are opaque grouping/analytics keys, not identities or credentials; aggregates
+// and opaque codes only. An unknown/empty cohort yields a zeroed report (not a 404).
+export interface CohortAnalytics {
+  cohortId: string;
+  totalTrainees: number;
+  totalEncounters: number;
+  underTriageRate: number; // 0..1
+  overTriageRate: number; // 0..1
+  correctRate: number; // 0..1
+  meanLevelsOffAbs: number;
+  // Cohort-wide under-triage segmented by case difficulty. Optional/nullable: null
+  // or absent when there are no scored encounters or the producer didn't resolve
+  // difficulty (legacy/zeroed path), mirroring the schema (not required) and the
+  // Pydantic model's `None` default.
+  byDifficulty?: ByDifficulty | null;
+  // Per-trainee breakdown, sorted by underTriageRate desc then traineeId asc.
+  trainees: CohortTraineeRow[];
+}
